@@ -6,8 +6,8 @@ class Node:
         self.identity: str = identity
 
         self.connections = set()
-        self.activation_state = False
         self.response_threshold = random.uniform(0, 1)
+        self.activation_state = False
         self.sampler_state = False
 
     def make_sampler(self):

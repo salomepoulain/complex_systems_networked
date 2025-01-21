@@ -6,26 +6,24 @@ class Network:
     def __init__(self, num_nodes, correlation, starting_distribution, update_fraction):
         self.correlation = correlation 
         self.update_fraction = update_fraction
-        self.nodes = {Node(i, self.assign_identity(starting_distribution)) for i in range(num_nodes)}
+
+        self.nodesL = {Node(i, "L") for i in range(num_nodes * starting_distribution)}
+        self.nodesR = {Node(i, "R") for i in range(num_nodes * (1 - starting_distribution))}
+
+        self.all_nodes = list(self.nodesL) + list(self.nodesR)
 
         self.initialize_network()
 
-    def assign_identity(self, starting_distribution):
-        """
-        Assign 'L' or 'R' identity to the node based on starting_distribution.
-        starting_distribution = 1 means a 50/50 split.
-        """
-        return "L" if random.random() < 0.5 else "R"
-        
     def initialize_network(self):
         """
         Initialize the network by connecting all nodes to a random number of other nodes.
         """
         ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
-        # idk of dit de bedoeling is of we zo een netwerk willen
+        # ik heb dit ff uit mn duim gezogen
         ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
-        for node1 in self.nodes:
-            for node2 in random.sample(self.nodes, random.randint(1, len(self.nodes))):
+
+        for node1 in self.all_nodes:
+            for node2 in random.sample(self.all_nodes, random.randint(1, len(self.all_nodes))):
                 self.add_connection(node1, node2)
 
     def add_connection(self, node1, node2):
@@ -51,42 +49,48 @@ class Network:
         sR = (np.tanh(sR) + 1) / 2
         return sL, sR
     
-    def respond_until_steady_state(self, sL, sR):
+    def run_cascade(self, sL, sR):
         """
         Continue responding to the news intensities until a steady state is reached (no changes in activation state).
+        This is the cascade event.
         """
         steady_state_reached = False
         while not steady_state_reached:
             steady_state_reached = True  
-            for node in self.nodes:
-                if node.identity == 'L' and node.respond(sL):
-                    steady_state_reached = False 
-                elif node.identity == 'R' and node.respond(sR):
-                    steady_state_reached = False  
-
-        [node.reset_sampler() for node in self.nodes]
+            for nodeL in self.nodesL:
+                if nodeL.respond(sL):
+                    steady_state_reached = False
+            for nodeR in self.nodesR:
+                if nodeR.respond(sR):
+                    steady_state_reached = False
 
     def network_adjustment(self, sL, sR):
         """
         Adjust the network by breaking ties and adding new connections.
         """
         # Select an active node involved in the cascade
-        active_nodes = [n for n in self.nodes if n.activation_state]
-        if not active_nodes: return
-        
-        node = random.choice(active_nodes)
-        
+        active_nodes = [n for n in self.all_nodes if n.activation_state]
+        active_node = random.choice(active_nodes)
+
         # If the node's behavior is inconsistent with its news source, break a tie and add a new connection
-        if ((node.identity == 'L' and node.activation_state and sL <= node.response_threshold) or
-            (node.identity == 'R' and node.activation_state and sR <= node.response_threshold)):
+        if ((active_node.identity == 'L' and sL <= active_node.response_threshold) or
+            (active_node.identity == 'R' and sR <= active_node.response_threshold)):
             
             # Break a tie with an active neighbor
-            active_neighbors = [n for n in node.connections if n.activation_state]
-            if active_neighbors: node.remove_edge(random.choice(active_neighbors))
+            active_neighbors = [n for n in active_node.connections if n.activation_state]
+
+            # Check if there are active neighbors to break ties with
+            if active_neighbors:
+                active_node.remove_edge(random.choice(active_neighbors))
 
             # Add a new random connection
-            unconnected_nodes = [n for n in self.nodes if n != node and node not in n.connections]
-            if unconnected_nodes: node.add_edge(random.choice(unconnected_nodes))
+            unconnected_nodes = [n for n in self.all_nodes if n != active_node and active_node not in n.connections]
+            if unconnected_nodes:
+                active_node.add_edge(random.choice(unconnected_nodes))
+
+            ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
+            # deze functie geeft nu geen zekerheid dat er ATIJD per round een nieuwe connectie wordt gemaakt, misschien moet er dus een loop # komen zodat dit wel elke ronde gebeurt
+            ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
 
     def update_round(self):
         """
@@ -98,13 +102,21 @@ class Network:
         # nog niet duidelijk of deze fractie bij beiden identities even groot is, of wat de fractie grootte moet zijn
         ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
         # Select a fraction of nodes to become sampled
-        [node.make_sampler() for node in random.sample(self.nodes, int(len(self.nodes) * self.update_fraction))]
+        [node.make_sampler() for node in random.sample(self.all_nodes, int(len(self.all_nodes) * self.update_fraction))]
 
         # Respond to the news intensities, continue this untill steady state is reached
-        self.respond_until_steady_state(sL, sR)
+        self.run_cascade(sL, sR)
 
         # Network adjustment
         self.network_adjustment(sL, sR)
+
+        # Reset states for next round
+        [node.reset_sampler() for node in self.all_nodes]
+
+        ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
+        # Moet hierna ook alle activation states weer ge-reset worden?
+        ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####     
+
 
 
         
