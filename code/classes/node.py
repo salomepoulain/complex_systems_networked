@@ -5,7 +5,7 @@ class Node:
         self.ID = ID
         self.identity: str = identity
 
-        self.connections = set()
+        self.node_connections = set()
         self.response_threshold = random.uniform(0, 1)
         self.activation_state = False
         self.sampler_state = False

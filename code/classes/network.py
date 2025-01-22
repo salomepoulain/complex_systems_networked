@@ -3,12 +3,14 @@ import numpy as np
 from code.classes.node import Node
 
 class Network:
-    def __init__(self, num_nodes, correlation, starting_distribution, update_fraction):
+    def __init__(self, num_nodes, correlation, starting_distribution=0.5, update_fraction=0):
         self.correlation = correlation 
         self.update_fraction = update_fraction
+        self.connections = []
+        self.size = num_nodes
 
-        self.nodesL = {Node(i, "L") for i in range(num_nodes * starting_distribution)}
-        self.nodesR = {Node(i, "R") for i in range(num_nodes * (1 - starting_distribution))}
+        self.nodesL = {Node(i, "L") for i in range(int(num_nodes * starting_distribution))}
+        self.nodesR = {Node(i + len(self.nodesL), "R") for i in range(int(num_nodes * (1 - starting_distribution)))}
 
         self.all_nodes = list(self.nodesL) + list(self.nodesR)
 
@@ -22,21 +24,26 @@ class Network:
         # ik heb dit ff uit mn duim gezogen
         ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
 
+        # this 10 should be adjusted to something variable -> motivation for this
+        p = self.size/10
         for node1 in self.all_nodes:
             for node2 in random.sample(self.all_nodes, random.randint(1, len(self.all_nodes))):
-                self.add_connection(node1, node2)
+                if np.random.rand() < p:
+                    self.add_connection(node1, node2)
+                    node1.add_edge(node2)
+                    node2.add_edge(node1)
 
     def add_connection(self, node1, node2):
         if node1 != node2:
             node1.add_edge(node2)
             node2.add_edge(node1)
-            self.connections.add((node1, node2))
+            self.connections.append((node1, node2))
 
     def remove_connection(self, node1, node2):
         if node1 != node2:
             node1.remove_edge(node2)
             node2.remove_edge(node1)
-            self.connections.discard((node1, node2))
+            self.connections.remove((node1, node2))
         
     def generate_news_significance(self):
         """
