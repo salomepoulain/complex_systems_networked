@@ -26,7 +26,10 @@ class Node:
         if self.sampler_state:
             new_activation_state = intensity > self.response_threshold
         else:
-            fraction_activated = sum(1 for node in self.connections if node.activation_state) / len(self.connections)
+            if len(self.connections) > 0:
+                fraction_activated = sum(1 for node in self.connections if node.activation_state) / len(self.connections)
+            else:
+                fraction_activated = 0
             new_activation_state = fraction_activated > self.response_threshold
 
         if new_activation_state != self.activation_state:

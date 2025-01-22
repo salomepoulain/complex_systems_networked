@@ -3,7 +3,10 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
-def plot_network(network):
+def initial_graph(network):
+    pass
+
+def plot_network(network, graph):
     graph = nx.Graph()
     colors = ['skyblue'] * len(network.nodesL) + ['red'] * len(network.nodesR)
     plt.figure(figsize=(4,4))
