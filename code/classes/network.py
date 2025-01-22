@@ -1,12 +1,14 @@
 import random
 import numpy as np
 from code.classes.node import Node
+from scipy import stats
 
 class Network:
-    def __init__(self, num_nodes, correlation, starting_distribution, update_fraction, p=0.1, k=None):
+    def __init__(self, num_nodes, mean, correlation, starting_distribution, update_fraction, p=0.1, k=None):
         self.p = p
         self.k = k
         self.correlation = correlation 
+        self.mean = mean
         self.update_fraction = update_fraction
         self.nodesL = {Node(i, "L") for i in range(int(num_nodes * starting_distribution))}
         self.nodesR = {Node(i, "R") for i in range(int(num_nodes * (1 - starting_distribution)))}
@@ -63,11 +65,10 @@ class Network:
         Generate news signifiance for both hubs based on their correlation.
         :return: Normalized signifiance (sL, sR) for the left and right media hubs.
         """
-        covariance_matrix = [[1, self.correlation], [self.correlation, 1]]
-        sL, sR = np.random.multivariate_normal(mean=[0, 0], cov=covariance_matrix)
-        sL = (np.tanh(sL) + 1) / 2  
-        sR = (np.tanh(sR) + 1) / 2
-        return sL, sR
+        covar = [[1, self.correlation ], [self.correlation, 1]]
+        stims = np.random.multivariate_normal(mean = [self.mean, self.mean], cov = covar, size = 1)
+        stims_perc = stats.norm.cdf(stims, loc = 0, scale = 1) 
+        return stims_perc[0][0], stims_perc[0][1]
     
     def run_cascade(self, sL, sR):
         """
