@@ -1,7 +1,8 @@
 import random
 import numpy as np
-from code.classes.node import Node
+#from code.classes.node import Node
 from scipy import stats
+from node import Node
 
 class Network:
     def __init__(self, num_nodes, mean, correlation, starting_distribution, update_fraction, p=0.1, k=None):
@@ -124,8 +125,8 @@ class Network:
         # nog niet duidelijk of deze fractie bij beiden identities even groot is, of wat de fractie grootte moet zijn
         ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
         # Select a fraction of nodes to become sampled
-        for node in random.sample(self.all_nodes, int(len(self.all_nodes) * self.update_fraction)):
-            node.make_sampler()
+        for node in random.sample(list(self.all_nodes), int(len(self.all_nodes) * self.update_fraction)):
+                node.make_sampler()
 
         # Respond to the news intensities, continue this untill steady state is reached
         self.run_cascade(sL, sR)
@@ -145,3 +146,15 @@ class Network:
 
 
         
+
+# num_nodes = 100
+# correlation = 0.5
+# update_fraction = 0.1
+# starting_distribution = 0.5       # L / R ratio (niet per se nodig maar kan misschien leuk zijn om te varieern)
+# p = 0.5
+# k = 2
+
+# network = Network(num_nodes, correlation, update_fraction, starting_distribution, p, k)
+
+# for round in range(100):
+#     network.update_round()

@@ -15,6 +15,9 @@ class Node:
 
     def reset_sampler(self):
         self.sampler_state = False
+
+    def reset_activation_state(self):
+        self.activation_state = False
         
     def respond(self, intensity):
         """
