@@ -33,7 +33,15 @@ class Node:
         return False
 
     def add_edge(self, node):
-        self.node_connections.add(node)
+        self.connections.add(node)
 
     def remove_edge(self, node):
-        self.node_connections.discard(node)
+        self.connections.discard(node)
+
+    def __hash__(self):
+        # Needed for set operations to work correctly
+        return hash((self.ID, self.identity)) 
+
+    def __eq__(self, other):
+        return isinstance(other, Node) and self.ID == other.ID and self.identity == other.identity
+

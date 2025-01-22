@@ -3,40 +3,60 @@ import numpy as np
 from code.classes.node import Node
 
 class Network:
-    def __init__(self, num_nodes, correlation, starting_distribution, update_fraction):
+    def __init__(self, num_nodes, correlation, starting_distribution, update_fraction, p=0.1, k=None):
+        self.p = p
+        self.k = k
         self.correlation = correlation 
         self.update_fraction = update_fraction
+        self.nodesL = {Node(i, "L") for i in range(int(num_nodes * starting_distribution))}
+        self.nodesR = {Node(i, "R") for i in range(int(num_nodes * (1 - starting_distribution)))}
+        self.all_nodes = self.nodesL.union(self.nodesR)
 
-        self.nodesL = {Node(i, "L") for i in range(num_nodes * starting_distribution)}
-        self.nodesR = {Node(i, "R") for i in range(num_nodes * (1 - starting_distribution))}
+        self.initialize_random_network()
 
-        self.all_nodes = list(self.nodesL) + list(self.nodesR)
-
-        self.initialize_network()
-
-    def initialize_network(self):
+    def initialize_random_network(self):
         """
-        Initialize the network by connecting all nodes to a random number of other nodes.
+        Initialize the network by connecting all nodes with a probability `p`.
+        If `p` is very low, the network will resemble a regular network with fixed degree `k`.
+        If `p` is high, it will resemble an Erdős–Rényi random network.
         """
-        ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
-        # ik heb dit ff uit mn duim gezogen
-        ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
+        if self.k is not None:
+            # If degree `k` is provided, ensure each node has exactly `k` connections.
+            # This creates a regular network first, and then we adjust using `p`.
+            for node1 in self.all_nodes:
+                # Create k regular connections for each node
+                available_nodes = list(self.all_nodes - {node1})
+                for _ in range(self.k):
+                    node2 = random.choice(available_nodes)
+                    self.add_connection(node1, node2)
+                    available_nodes.remove(node2)
 
-        for node1 in self.all_nodes:
-            for node2 in random.sample(self.all_nodes, random.randint(1, len(self.all_nodes))):
-                self.add_connection(node1, node2)
+            # Now use `p` to add random edges between any pair of nodes
+            for node1 in self.all_nodes:
+                for node2 in self.all_nodes:
+                    if node1 != node2 and (node2 not in node1.connections):
+                        if random.random() < self.p:
+                            self.add_connection(node1, node2)
+        else:
+            # If no degree `k` is provided, fall back to the Erdős–Rényi model
+            for node1 in self.all_nodes:
+                for node2 in self.all_nodes:
+                    if node1 != node2 and (node2 not in node1.connections):
+                        if random.random() < self.p:
+                            self.add_connection(node1, node2)
+
 
     def add_connection(self, node1, node2):
-        if node1 != node2:
+        """Add an undirected connection between two nodes (if not already present)."""
+        if node1 != node2: 
             node1.add_edge(node2)
             node2.add_edge(node1)
-            self.connections.add((node1, node2))
 
     def remove_connection(self, node1, node2):
+        """Remove the connection between two nodes if it exists."""
         if node1 != node2:
             node1.remove_edge(node2)
             node2.remove_edge(node1)
-            self.connections.discard((node1, node2))
         
     def generate_news_significance(self):
         """
@@ -69,24 +89,25 @@ class Network:
         Adjust the network by breaking ties and adding new connections.
         """
         # Select an active node involved in the cascade
-        active_nodes = [n for n in self.all_nodes if n.activation_state]
-        active_node = random.choice(active_nodes)
+        active_nodes = {n for n in self.all_nodes if n.activation_state}  # Set of active nodes
+        if active_nodes:
+            active_node = random.choice(list(active_nodes))
 
-        # If the node's behavior is inconsistent with its news source, break a tie and add a new connection
-        if ((active_node.identity == 'L' and sL <= active_node.response_threshold) or
-            (active_node.identity == 'R' and sR <= active_node.response_threshold)):
-            
-            # Break a tie with an active neighbor
-            active_neighbors = [n for n in active_node.connections if n.activation_state]
+            # Break ties if behavior is inconsistent with news source
+            if ((active_node.identity == 'L' and sL <= active_node.response_threshold) or
+                (active_node.identity == 'R' and sR <= active_node.response_threshold)):
+                
+                # Break a tie with an active neighbor (use set for efficiency)
+                active_neighbors = {n for n in active_node.connections if n.activation_state}
 
-            # Check if there are active neighbors to break ties with
-            if active_neighbors:
-                active_node.remove_edge(random.choice(active_neighbors))
+                # If active neighbors exist, remove an edge
+                if active_neighbors:
+                    active_node.remove_edge(random.choice(list(active_neighbors)))
 
-            # Add a new random connection
-            unconnected_nodes = [n for n in self.all_nodes if n != active_node and active_node not in n.connections]
-            if unconnected_nodes:
-                active_node.add_edge(random.choice(unconnected_nodes))
+                # Add a new random connection (ensure the node isn't already connected)
+                unconnected_nodes = {n for n in self.all_nodes if n != active_node and active_node not in n.connections}
+                if unconnected_nodes:
+                    active_node.add_edge(random.choice(list(unconnected_nodes)))
 
             ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
             # deze functie geeft nu geen zekerheid dat er ATIJD per round een nieuwe connectie wordt gemaakt, misschien moet er dus een loop # komen zodat dit wel elke ronde gebeurt
@@ -102,7 +123,8 @@ class Network:
         # nog niet duidelijk of deze fractie bij beiden identities even groot is, of wat de fractie grootte moet zijn
         ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
         # Select a fraction of nodes to become sampled
-        [node.make_sampler() for node in random.sample(self.all_nodes, int(len(self.all_nodes) * self.update_fraction))]
+        for node in random.sample(self.all_nodes, int(len(self.all_nodes) * self.update_fraction)):
+            node.make_sampler()
 
         # Respond to the news intensities, continue this untill steady state is reached
         self.run_cascade(sL, sR)
@@ -111,7 +133,9 @@ class Network:
         self.network_adjustment(sL, sR)
 
         # Reset states for next round
-        [node.reset_sampler() for node in self.all_nodes]
+        for node in self.all_nodes:
+            node.reset_sampler()
+            node.reset_activation_state()
 
         ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
         # Moet hierna ook alle activation states weer ge-reset worden?
