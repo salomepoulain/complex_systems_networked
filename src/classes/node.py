@@ -5,7 +5,7 @@ class Node:
         self.ID = ID
         self.identity: str = identity
 
-        self.connections = set()
+        self.node_connections = set()
         self.response_threshold = random.uniform(0, 1)
         self.activation_state = False
         self.sampler_state = False
@@ -26,8 +26,8 @@ class Node:
         if self.sampler_state:
             new_activation_state = intensity > self.response_threshold
         else:
-            if len(self.connections) > 0:
-                fraction_activated = sum(1 for node in self.connections if node.activation_state) / len(self.connections)
+            if len(self.node_connections) > 0:
+                fraction_activated = sum(1 for node in self.node_connections if node.activation_state) / len(self.node_connections)
             else:
                 fraction_activated = 0
             new_activation_state = fraction_activated > self.response_threshold
@@ -39,10 +39,10 @@ class Node:
         return False
 
     def add_edge(self, node):
-        self.connections.add(node)
+        self.node_connections.add(node)
 
     def remove_edge(self, node):
-        self.connections.discard(node)
+        self.node_connections.discard(node)
 
     def __hash__(self):
         # Needed for set operations to work correctly

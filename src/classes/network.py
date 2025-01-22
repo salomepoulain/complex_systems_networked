@@ -5,7 +5,7 @@ from scipy import stats
 # from node import Node
 
 class Network:
-    def __init__(self, num_nodes, mean=0, correlation=-1, starting_distribution=0.5, update_fraction=0.1, p=0.1, k=None):
+    def __init__(self, num_nodes, mean=0, correlation=-1, starting_distribution=0.5, update_fraction=0.3, p=0.1, k=None):
         self.p = p
         self.k = k
         self.correlation = correlation 
@@ -13,7 +13,7 @@ class Network:
         self.update_fraction = update_fraction
         self.nodesL = {Node(i, "L") for i in range(int(num_nodes * starting_distribution))}
         self.nodesR = {Node(i + len(self.nodesL), "R") for i in range(int(num_nodes * (1 - starting_distribution)))}
-        self.connections = []
+        self.connections = set()
         self.all_nodes = self.nodesL.union(self.nodesR)
 
         self.initialize_random_network()
@@ -39,14 +39,14 @@ class Network:
             # Now use `p` to add random edges between any pair of nodes
             for node1 in self.all_nodes:
                 for node2 in self.all_nodes:
-                    if node1 != node2 and (node2 not in node1.connections):
+                    if node1 != node2 and (node2 not in node1.node_connections):
                         if random.random() < self.p:
                             self.add_connection(node1, node2)
         else:
             # If no degree `k` is provided, fall back to the Erdős–Rényi model
             for node1 in self.all_nodes:
                 for node2 in self.all_nodes:
-                    if node1 != node2 and (node2 not in node1.connections):
+                    if node1 != node2 and (node2 not in node1.node_connections):
                         if random.random() < self.p:
                             self.add_connection(node1, node2)
 
@@ -56,8 +56,8 @@ class Network:
         if node1 != node2: 
             node1.add_edge(node2)
             node2.add_edge(node1)
-            self.connections.append((node1, node2))
-            self.connections.append((node2, node1))
+            self.connections.add((node1, node2))
+            self.connections.add((node2, node1))
 
     def remove_connection(self, node1, node2):
         """Remove the connection between two nodes if it exists."""
@@ -106,16 +106,27 @@ class Network:
                 (active_node.identity == 'R' and sR <= active_node.response_threshold)):
                 
                 # Break a tie with an active neighbor (use set for efficiency)
-                active_neighbors = {n for n in active_node.connections if n.activation_state}
+                active_neighbors = {n for n in active_node.node_connections if n.activation_state}
 
                 # If active neighbors exist, remove an edge
                 if active_neighbors:
-                    active_node.remove_edge(random.choice(list(active_neighbors)))
+                    print(f"removed edge from {active_node.ID}")
+                    break_node = random.choice(list(active_neighbors))
+                    self.remove_connection(active_node, break_node)
+                    
+                    # only if an edge is removed, add an extra adge. 
+                    node1 = random.choice(list(self.all_nodes))
+                    node2 = random.choice(list(self.all_nodes))
+                    print(f"added connection from node: {node1.ID} to node: {node2.ID}")
+                    self.add_connection(node1, node2)
 
                 # Add a new random connection (ensure the node isn't already connected)
-                unconnected_nodes = {n for n in self.all_nodes if n != active_node and active_node not in n.connections}
-                if unconnected_nodes:
-                    active_node.add_edge(random.choice(list(unconnected_nodes)))
+                
+                # very inefficient line
+                # unconnected_nodes = {n for n in self.all_nodes if n != active_node and active_node not in n.node_connections}
+               
+                # if unconnected_nodes:
+                #     active_node.add_edge(random.choice(list(unconnected_nodes)))
 
             ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
             # deze functie geeft nu geen zekerheid dat er ATIJD per round een nieuwe connectie wordt gemaakt, misschien moet er dus een loop # komen zodat dit wel elke ronde gebeurt
