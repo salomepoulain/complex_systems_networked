@@ -1,18 +1,19 @@
 import random
 import numpy as np
-#from code.classes.node import Node
+from src.classes.node import Node
 from scipy import stats
-from node import Node
+# from node import Node
 
 class Network:
-    def __init__(self, num_nodes, mean, correlation, starting_distribution, update_fraction, p=0.1, k=None):
+    def __init__(self, num_nodes, mean=0, correlation=-1, starting_distribution=0.5, update_fraction=0.1, p=0.1, k=None):
         self.p = p
         self.k = k
         self.correlation = correlation 
         self.mean = mean
         self.update_fraction = update_fraction
         self.nodesL = {Node(i, "L") for i in range(int(num_nodes * starting_distribution))}
-        self.nodesR = {Node(i, "R") for i in range(int(num_nodes * (1 - starting_distribution)))}
+        self.nodesR = {Node(i + len(self.nodesL), "R") for i in range(int(num_nodes * (1 - starting_distribution)))}
+        self.connections = []
         self.all_nodes = self.nodesL.union(self.nodesR)
 
         self.initialize_random_network()
@@ -32,6 +33,7 @@ class Network:
                 for _ in range(self.k):
                     node2 = random.choice(available_nodes)
                     self.add_connection(node1, node2)
+                    # self.add_connection(node2, node1)
                     available_nodes.remove(node2)
 
             # Now use `p` to add random edges between any pair of nodes
@@ -54,12 +56,16 @@ class Network:
         if node1 != node2: 
             node1.add_edge(node2)
             node2.add_edge(node1)
+            self.connections.append((node1, node2))
+            self.connections.append((node2, node1))
 
     def remove_connection(self, node1, node2):
         """Remove the connection between two nodes if it exists."""
         if node1 != node2:
             node1.remove_edge(node2)
             node2.remove_edge(node1)
+            self.connections.remove((node1, node2))
+            self.connections.remove((node2, node1))
         
     def generate_news_significance(self):
         """
