@@ -3,7 +3,7 @@ import numpy as np
 from src.classes.node import Node
 from scipy import stats
 import networkx as nx
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
 class Network:
     def __init__(self, num_nodes, mean=0, correlation=-1, starting_distribution=0.5, update_fraction=0.3, p=0.1, k=None):
@@ -160,38 +160,39 @@ class Network:
         # 
     def print_network(self):
         """
-        Print network 
+        Print network.
         """
-        # create an empty graph
+        # Create an empty graph
         self.graph = nx.Graph()
 
-        # add all nodes
+        # Add all nodes with the correct "group" attribute
         for node in self.all_nodes:
-            self.graph.add_node(node.ID, group = node.identity)
+            self.graph.add_node(node.ID, group=node.identity)
 
-        # add edges
-        for node in self.all_nodes:
-            for connection in node.connections:
-                self.graph.add_edges_from([(node.ID, connection.ID)])
+        # Add edges to the graph
+        self.graph.add_edges_from((node1.ID, node2.ID) for node1, node2 in self.connections)
 
         print(nx.average_clustering(self.graph))
 
         plt.figure(figsize=(8, 8))
-        color_map = ["lightblue" if node[1]["group"] == "L" else "#FF6666" for node in self.graph.nodes(data=True)]
-        # pos = nx.spring_layout(graph)
+
+        # Generate the color map
+        color_map = ["lightblue" if data["group"] == "L" else "#FF6666" for _, data in self.graph.nodes(data=True)]
+
+        # Set positions and draw the graph
         pos = nx.kamada_kawai_layout(self.graph, scale=0.8)
         nx.draw(
             self.graph,
             pos,
             node_color=color_map,
             with_labels=False,
-            edge_color="lightgray",  
+            edge_color="lightgray",
             width=0.2,
             node_size=500,
             font_size=10,
         )
-        # plt.title("Network Visualization")
-        plt.show()  
+        plt.show()
+
 
 
 
