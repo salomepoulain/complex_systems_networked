@@ -1,4 +1,3 @@
-import random
 import numpy as np
 
 class Node:
@@ -29,17 +28,34 @@ class Node:
 
     def reset_activation_state(self):
         self.activation_state = False
+
+    def respond_sampler(self, intensity):
+
+        new_activation_state = intensity > self.response_threshold
+
+        assert self.activation_state==False, "activation state can't be true at this point"
+        assert self.sampler_state==True, "node is not recognized as a sampler but treated as one"
+
+        if new_activation_state: 
+            self.activation_state = True
         
-    def respond(self, intensity=0, analyze=False):
+
+
+        
+    def respond(self, intensity=0, inset = set(), analyze=False):
         """
         respond to the news intensity and returns False if the activation state did not change, True otherwise.
         """
 
         neighbors_activated = 0
         actually_activated = []
-        if self.sampler_state:
-            new_activation_state = intensity > self.response_threshold
-            
+        new_activation_state = False
+
+        if len(inset) > 0:
+            if self.sampler_state:
+                new_activation_state = intensity > self.response_threshold
+                assert self in inset, "value should be contained in this set"
+                
         else:
             if len(self.node_connections) > 0: 
                 actually_activated = [node for node in self.node_connections if node.activation_state] 

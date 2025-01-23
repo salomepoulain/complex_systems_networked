@@ -13,6 +13,7 @@ class Network:
         self.activated = set()
         self.alterations = 0
         self.update_fraction = update_fraction
+
         self.nodesL = {Node(i, "L", seed=i*3) for i in range(int(num_nodes * starting_distribution))}
         self.nodesR = {Node(i + len(self.nodesL), "R", seed=i+num_nodes*2) for i in range(int(num_nodes * (1 - starting_distribution)))}
         self.connections = set()
@@ -86,7 +87,7 @@ class Network:
     
 
 
-    def run_cascade(self, sL, sR):
+    def run_cascade(self, sL, sR, all_samplers):
         """
         Continue responding to the news intensities until a steady state is reached (no changes in activation state).
         This is the cascade event.
@@ -94,21 +95,25 @@ class Network:
         self.activated=set()
         steady_state_reached = True
         union_to_consider= set()
+        all_left, all_right = all_samplers
+
+        all_players = all_left.union(all_right)
+        # print(len(all_players))
         
 
         # inject news for left oriented nodes
-        for nodeL in self.nodesL:
+        for nodeL in all_left:
             nodeL.reset_node()
-            active_state, to_consider_L = nodeL.respond(sL)
+            active_state, to_consider_L = nodeL.respond(sL, all_players)
             if active_state:
                 union_to_consider.update(to_consider_L)
                 steady_state_reached = False
                 self.activated.add(nodeL)
 
         # inject news for right oriented nodes
-        for nodeR in self.nodesR:
+        for nodeR in all_right:
             nodeR.reset_node()
-            active_state, to_consider_R = nodeR.respond(sR)
+            active_state, to_consider_R = nodeR.respond(sR, all_players)
             if active_state:
                 union_to_consider.update(to_consider_R)
                 steady_state_reached = False
@@ -117,7 +122,6 @@ class Network:
         while not steady_state_reached:
             steady_state_reached = True
             new_to_consider = set()
-
 
             for individual in union_to_consider:
                 # omit redundant checks by returning only the neighbors of newly activated nodes. 
@@ -187,12 +191,20 @@ class Network:
         ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
         # Select a fraction of nodes to become sampled
         number_of_samplers = 0
+        all_samplers_L, all_samplers_R = set(), set()
         for node in np.random.choice(list(self.all_nodes), int(len(self.all_nodes) * self.update_fraction), replace=False):
             number_of_samplers+=1
-            node.make_sampler()
+
+            if node.identity == 'L':
+                all_samplers_L.add(node)
+            elif node.identity == 'R':
+                all_samplers_R.add(node)
+            else:
+                raise ValueError("node identity should be assigned")
+            node.sampler_state = True
 
         # Respond to the news intensities, continue this untill steady state is reached
-        self.run_cascade(sL, sR)
+        self.run_cascade(sL, sR, (all_samplers_L, all_samplers_R))
 
         # Network adjustment
         self.network_adjustment(sL, sR)
