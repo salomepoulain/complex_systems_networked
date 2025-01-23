@@ -2,7 +2,6 @@ import random
 import numpy as np
 from src.classes.node import Node
 from scipy import stats
-# from node import Node
 
 class Network:
     def __init__(self, num_nodes, mean=0, correlation=-1, starting_distribution=0.5, update_fraction=0.3, p=0.1, k=None):
@@ -10,6 +9,7 @@ class Network:
         self.k = k
         self.correlation = correlation 
         self.mean = mean
+        self.alterations = 0
         self.update_fraction = update_fraction
         self.nodesL = {Node(i, "L") for i in range(int(num_nodes * starting_distribution))}
         self.nodesR = {Node(i + len(self.nodesL), "R") for i in range(int(num_nodes * (1 - starting_distribution)))}
@@ -108,34 +108,31 @@ class Network:
                 # Break a tie with an active neighbor (use set for efficiency)
                 active_neighbors = {n for n in active_node.node_connections if n.activation_state}
 
+                number_of_connections = len(self.connections)
                 # If active neighbors exist, remove an edge
                 if active_neighbors:
-                    print(f"removed edge from {active_node.ID}")
+                    self.alterations +=1
+                    # print(f"removed edge from {active_node.ID}")
                     break_node = random.choice(list(active_neighbors))
                     self.remove_connection(active_node, break_node)
                     
                     # only if an edge is removed, add an extra adge. 
                     node1 = random.choice(list(self.all_nodes))
-                    node2 = random.choice(list(self.all_nodes))
-                    print(f"added connection from node: {node1.ID} to node: {node2.ID}")
+                    cant_be_picked = node1.node_connections.copy()
+                    cant_be_picked.add(node1)
+                    node2 = random.choice(list(self.all_nodes - cant_be_picked))
+
+                    # print(f"added connection from node: {node1.ID} to node: {node2.ID}")
                     self.add_connection(node1, node2)
-
-                # Add a new random connection (ensure the node isn't already connected)
                 
-                # very inefficient line
-                # unconnected_nodes = {n for n in self.all_nodes if n != active_node and active_node not in n.node_connections}
-               
-                # if unconnected_nodes:
-                #     active_node.add_edge(random.choice(list(unconnected_nodes)))
+                assert number_of_connections == len(self.connections), "invalid operation took place, new number of edges is different than old"
 
-            ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
-            # deze functie geeft nu geen zekerheid dat er ATIJD per round een nieuwe connectie wordt gemaakt, misschien moet er dus een loop # komen zodat dit wel elke ronde gebeurt
-            ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
 
     def update_round(self):
         """
         Perform a single update round.
         """
+        self.alterations = 0
         sL, sR = self.generate_news_significance()
 
         ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
@@ -143,7 +140,7 @@ class Network:
         ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
         # Select a fraction of nodes to become sampled
         for node in random.sample(list(self.all_nodes), int(len(self.all_nodes) * self.update_fraction)):
-                node.make_sampler()
+            node.make_sampler()
 
         # Respond to the news intensities, continue this untill steady state is reached
         self.run_cascade(sL, sR)
