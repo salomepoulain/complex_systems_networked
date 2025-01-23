@@ -10,36 +10,47 @@ def initial_graph(network):
     graph.add_nodes_from(range(len(network.all_nodes)))
     return graph, colors
 
-def self_sort(frame, network, graph, colors, pos, ax):
+def self_sort(frame, network, graph, colors, pos, pos_target, ax, seedje):
     ax.clear()
-    network.update_round()
+    for _ in range(10000):
+        network.update_round()
     graph.clear_edges()
     for connection in network.connections:
         graph.add_edge(connection[0].ID, connection[1].ID)
+    
+    if frame % 100 == 0:
+        seedje+=frame
+        pos_target.update(nx.spring_layout(graph, k=0.4, iterations=50, seed=seedje))  # Update target positions
+
+    # Smoothly interpolate positions between frames
+    alpha = (frame % 100) / 1000
+    for node in pos:
+        pos[node] = pos[node] * (1 - alpha) + pos_target[node] * alpha 
     
     # print(list(graph.nodes()))
     nx.draw(
         graph, 
         pos,
         ax=ax,
-        with_labels=True, 
+        with_labels=False, 
         node_color= colors, 
-        node_size=1000, 
+        node_size=200, 
         font_size=12, 
-        font_weight="bold", 
+        # font_weight="bold", 
         edge_color="gray")
     ax.set_title(f"frame: {frame}", fontsize=14)
 
 def plot_network(network):
     fig, ax = plt.subplots(figsize=(6, 6))
     graph, colors = initial_graph(network)
-
-    pos = nx.spring_layout(graph, k=0.5, iterations=5, seed=21)
+    seedje = 33
+    pos = nx.spring_layout(graph, k=0.4, iterations=25, seed=seedje)
+    pos_target = pos.copy()
     # Create the animation
     ani = FuncAnimation(fig, 
                         self_sort, 
-                        frames=500, 
+                        frames=1000, 
                         interval=500,  
-                        fargs=(network, graph, colors, pos, ax))
-    ani.save("network_animation.gif", fps=10, writer="pillow")
+                        fargs=(network, graph, colors, pos, pos_target, ax, seedje))
+    ani.save("animations/network_animation.gif", fps=10, writer="pillow")
     plt.show()
