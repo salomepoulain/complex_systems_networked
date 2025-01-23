@@ -4,7 +4,7 @@ from src.classes.node import Node
 from scipy import stats
 
 class Network:
-    def __init__(self, num_nodes, mean=0, correlation=-1, starting_distribution=0.5, update_fraction=0.3, seed=None, p=0.1, k=None):
+    def __init__(self, num_nodes, mean=0, correlation=-1, starting_distribution=0.5, update_fraction=0.2, seed=None, p=0.1, k=None):
         self.p = p
         self.k = k
         self.seed = seed
@@ -13,8 +13,8 @@ class Network:
         self.activated = set()
         self.alterations = 0
         self.update_fraction = update_fraction
-        self.nodesL = {Node(i, "L") for i in range(int(num_nodes * starting_distribution))}
-        self.nodesR = {Node(i + len(self.nodesL), "R") for i in range(int(num_nodes * (1 - starting_distribution)))}
+        self.nodesL = {Node(i, "L", seed=i*3) for i in range(int(num_nodes * starting_distribution))}
+        self.nodesR = {Node(i + len(self.nodesL), "R", seed=i+num_nodes*2) for i in range(int(num_nodes * (1 - starting_distribution)))}
         self.connections = set()
         self.all_nodes = self.nodesL.union(self.nodesR)
         self.initialize_random_network()
@@ -101,7 +101,6 @@ class Network:
             nodeL.reset_node()
             active_state, to_consider_L = nodeL.respond(sL)
             if active_state:
-                # print("came here")
                 union_to_consider.update(to_consider_L)
                 steady_state_reached = False
                 self.activated.add(nodeL)
@@ -111,30 +110,23 @@ class Network:
             nodeR.reset_node()
             active_state, to_consider_R = nodeR.respond(sR)
             if active_state:
-                # print("came here")
                 union_to_consider.update(to_consider_R)
                 steady_state_reached = False
                 self.activated.add(nodeR)
 
-        # print(len(union_to_consider))
-        # print(len(self.activated))
         while not steady_state_reached:
             steady_state_reached = True
             new_to_consider = set()
-            # print("not a steady state rached")
+
+
             for individual in union_to_consider:
-                # print("within while loop")
                 # omit redundant checks by returning only the neighbors of newly activated nodes. 
                 active_state, to_consider = individual.respond()
                 if active_state:
                     steady_state_reached=False
-                    self.activated.add(nodeL)
+                    self.activated.add(individual)
                     new_to_consider.update(to_consider)
-
-    	
-
-
-            
+            union_to_consider = new_to_consider
 
     def analyze_network(self, sL, sR):
         pass
@@ -149,22 +141,22 @@ class Network:
         # can maybe be done more efficiently if done dynamically
         # active_nodes = {n for n in self.all_nodes if n.activation_state}  # Set of active nodes
 
-        active_nodes = self.activated
-        if active_nodes:
-            active_node = np.random.choice(list(active_nodes))
+        if len(self.activated) >0:
+            active_node = np.random.choice(list(self.activated))
 
-            # Break ties if behavior is inconsistent with news source
             if ((active_node.identity == 'L' and sL <= active_node.response_threshold) or
                 (active_node.identity == 'R' and sR <= active_node.response_threshold)):
                 
                 # Break a tie with an active neighbor (use set for efficiency)
                 active_neighbors = {n for n in active_node.node_connections if n.activation_state}
-
                 number_of_connections = len(self.connections)
+
                 # If active neighbors exist, remove an edge
-                if active_neighbors:
-                    self.alterations +=1
-                    # print(f"removed edge from {active_node.ID}")
+                if len(active_neighbors) > 0:
+                    
+                    self.alterations=1
+                    
+                    # remove edge
                     break_node = np.random.choice(list(active_neighbors))
                     self.remove_connection(active_node, break_node)
                     
@@ -174,7 +166,7 @@ class Network:
                     cant_be_picked.add(node1)
                     node2 = np.random.choice(list(self.all_nodes - cant_be_picked))
 
-                    # print(f"added connection from node: {node1.ID} to node: {node2.ID}")
+                    # add edge
                     self.add_connection(node1, node2)
                 
                 assert number_of_connections == len(self.connections), "invalid operation took place, new number of edges is different than old"
@@ -194,7 +186,9 @@ class Network:
         # nog niet duidelijk of deze fractie bij beiden identities even groot is, of wat de fractie grootte moet zijn
         ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
         # Select a fraction of nodes to become sampled
+        number_of_samplers = 0
         for node in np.random.choice(list(self.all_nodes), int(len(self.all_nodes) * self.update_fraction), replace=False):
+            number_of_samplers+=1
             node.make_sampler()
 
         # Respond to the news intensities, continue this untill steady state is reached
@@ -204,6 +198,7 @@ class Network:
         self.network_adjustment(sL, sR)
 
         # Reset states for next round
+        self.activated = set()
         for node in self.all_nodes:
             node.reset_sampler()
             node.reset_activation_state()

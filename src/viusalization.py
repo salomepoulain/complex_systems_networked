@@ -33,7 +33,7 @@ def self_sort(frame, network, graph, colors, pos, pos_target, ax, seedje, all_al
         ax: Matplotlib axis object.
         seedje: Seed for random layout generation.
     """
-    framestep = 500
+    framestep = 50
     ax.clear()
     num_updates = 1000
     for i in range(num_updates):
