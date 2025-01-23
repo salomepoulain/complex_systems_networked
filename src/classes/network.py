@@ -2,11 +2,17 @@ import random
 import numpy as np
 from src.classes.node import Node
 from scipy import stats
+import numpy as np
+import matplotlib.pyplot as plt
+from powerlaw import Fit
+import networkx as nx
+
 
 class Network:
-    def __init__(self, num_nodes, mean=0, correlation=-1, starting_distribution=0.5, update_fraction=0.3, p=0.1, k=None):
+    def __init__(self, num_nodes, mean=0, correlation=-1, starting_distribution=0.5, update_fraction=0.3, network=None, p=0.1, k=None, m=None):
         self.p = p
         self.k = k
+        self.m = m  
         self.correlation = correlation 
         self.mean = mean
         self.alterations = 0
@@ -16,8 +22,13 @@ class Network:
         self.connections = set()
         self.all_nodes = self.nodesL.union(self.nodesR)
 
-        self.initialize_random_network()
-
+        if network == 'scale_free':
+            self.initialize_scale_free_network()
+        elif network == 'random':
+            self.initialize_random_network()
+        else:
+            assert network is None, "Invalid network type provided. Use 'scale_free' or 'random'."
+        
     def initialize_random_network(self):
         """
         Initialize the network by connecting all nodes with a probability `p`.
@@ -51,13 +62,95 @@ class Network:
                             self.add_connection(node1, node2)
 
 
+    def initialize_scale_free_network(self):
+        assert self.m < len(self.all_nodes), "Number of connections `m` must be less than the number of nodes."
+        assert self.m > 0, "Number of connections `m` must be greater than 0."
+
+        # Create a list of nodes to work with
+        all_nodes_list = list(self.all_nodes)
+
+        # Select initial m nodes and fully connect them
+        m0_nodes = random.sample(all_nodes_list, self.m)
+        for i in range(len(m0_nodes)):
+            for j in range(i + 1, len(m0_nodes)):
+                self.add_connection(m0_nodes[i], m0_nodes[j])
+
+        # Track degrees for preferential attachment
+        degrees = {node: len(node.node_connections) for node in self.all_nodes if node in m0_nodes}
+
+        # Add remaining nodes using preferential attachment
+        remaining_nodes = list(set(all_nodes_list) - set(m0_nodes))
+
+        for new_node in remaining_nodes:
+            # Calculate cumulative degree distribution for preferential attachment
+            total_degree = sum(degrees.values())
+            cumulative_probabilities = []
+            cumulative_sum = 0
+
+            connection_candidates = list(degrees.keys())
+            for node in connection_candidates:
+                cumulative_sum += degrees[node] / total_degree
+                cumulative_probabilities.append(cumulative_sum)
+
+            # Select nodes to connect to, with probability proportional to their degree
+            connected_nodes = set()
+            while len(connected_nodes) < self.m:
+                r = random.random()
+                for idx, cumulative_prob in enumerate(cumulative_probabilities):
+                    if r <= cumulative_prob:
+                        connected_nodes.add(connection_candidates[idx])
+                        break
+
+            # Add connections
+            for target_node in connected_nodes:
+                self.add_connection(new_node, target_node)
+                degrees[target_node] += 1  # Update degree for target node
+
+            degrees[new_node] = self.m  # New node has `m` connections
+
+        # Verify scale-free properties and optionally plot
+        self.verify_scale_free_distribution(plot=True)
+
+
+    def verify_scale_free_distribution(self, plot):
+        """
+        Check if the network exhibits scale-free characteristics
+        """
+        # Calculate node degrees
+        degrees = [len(node.node_connections) for node in self.all_nodes]
+        
+        # Compute log-log plot for degree distribution
+        degree_counts = {}
+        for degree in degrees:
+            degree_counts[degree] = degree_counts.get(degree, 0) + 1
+        
+        unique_degrees = list(degree_counts.keys())
+        frequencies = list(degree_counts.values())
+        
+        if plot:
+            plt.figure(figsize=(10, 6))
+            plt.loglog(unique_degrees, frequencies, 'bo')
+            plt.title('Degree Distribution (Log-Log Scale)')
+            plt.xlabel('Degree')
+            plt.ylabel('Frequency')
+            plt.show()
+        
+        # Basic scale-free network indicators
+        assert max(degrees) > np.mean(degrees) * 2, "Network lacks high-degree nodes"
+        assert len([d for d in degrees if d > np.mean(degrees) * 2]) > 0, "No significant hub nodes"
+        fit = Fit(degrees)
+        print("Power-law alpha:", fit.power_law.alpha)
+        print("Goodness of fit (p-value):", fit.power_law.KS())
+
+
     def add_connection(self, node1, node2):
         """Add an undirected connection between two nodes (if not already present)."""
-        if node1 != node2: 
+        if node1 != node2 and (node1, node2) not in self.connections:
             node1.add_edge(node2)
             node2.add_edge(node1)
             self.connections.add((node1, node2))
             self.connections.add((node2, node1))
+
 
     def remove_connection(self, node1, node2):
         """Remove the connection between two nodes if it exists."""
