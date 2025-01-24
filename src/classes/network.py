@@ -133,6 +133,7 @@ class Network:
         """
         Perform a single update round.
         """
+        # print(self.alterations)
         self.alterations = 0
         sL, sR = self.generate_news_significance()
 
@@ -157,41 +158,9 @@ class Network:
         ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
         # Moet hierna ook alle activation states weer ge-reset worden?
         ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####   
-        # 
-    def print_network(self):
-        """
-        Print network.
-        """
-        # Create an empty graph
-        self.graph = nx.Graph()
 
-        # Add all nodes with the correct "group" attribute
-        for node in self.all_nodes:
-            self.graph.add_node(node.ID, group=node.identity)
 
-        # Add edges to the graph
-        self.graph.add_edges_from((node1.ID, node2.ID) for node1, node2 in self.connections)
 
-        print(nx.average_clustering(self.graph))
-
-        plt.figure(figsize=(8, 8))
-
-        # Generate the color map
-        color_map = ["lightblue" if data["group"] == "L" else "#FF6666" for _, data in self.graph.nodes(data=True)]
-
-        # Set positions and draw the graph
-        pos = nx.kamada_kawai_layout(self.graph, scale=0.8)
-        nx.draw(
-            self.graph,
-            pos,
-            node_color=color_map,
-            with_labels=False,
-            edge_color="lightgray",
-            width=0.2,
-            node_size=500,
-            font_size=10,
-        )
-        plt.show()
 
 
 

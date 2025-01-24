@@ -66,7 +66,7 @@ def self_sort(frame, network, graph, colors, pos, pos_target, ax, seedje, all_al
         # font_size=12, 
         edge_color="lightgray",  
         width=0.2,
-        node_size=500,
+        node_size=80,
         font_size=10,
     )
     ax.set_title(f"frame: {frame}", fontsize=14)
@@ -89,65 +89,42 @@ def plot_network(network):
     ani = FuncAnimation(
         fig, 
         self_sort, 
-        frames=500, 
+        frames=1000, 
         interval=200,  
         fargs=(network, graph, colors, pos, pos_target, ax, seedje)
     )
     ani.save("animations/network_animation.gif", fps=10, writer="pillow")
     plt.show()
 
+
 def print_network(network):
     """
-    Print network 
+    Print network.
     """
 
+    color_map = ['lightblue'] * len(network.nodesL) + ['#FF6666'] * len(network.nodesR)
     graph = nx.Graph()
     graph.add_nodes_from(range(len(network.all_nodes)))
-    # color_map = ["lightblue" if node[1]["group"] == "L" else "#FF6666" for node in graph.nodes(data=True)]
-    color_map = ["lightblue" if node.group == "L" else "#FF6666" for node in graph.nodes]
+    graph.clear_edges()
+    for connection in network.connections:
+        graph.add_edge(connection[0].ID, connection[1].ID)
+    
 
-    print(nx.average_clustering(graph))
 
+    # Set positions and draw the graph
     plt.figure(figsize=(8,8))
     pos = nx.kamada_kawai_layout(graph, scale=0.8)
     nx.draw(
         graph,
         pos,
         node_color=color_map,
-        with_labels=False,
-        edge_color="lightgray",  
+        with_labels=True,
+        edge_color="lightgray",
         width=0.2,
-        node_size=50,
+        node_size=500,
         font_size=10,
     )
-    plt.show()
-    # plt.title
-
-
-
-
-
-
-
-    # create an empty graph
-    # graph = nx.Graph()
-
-    # add all nodes
-    # for node in self.all_nodes:
-    #     graph.add_node(node.ID, group = node.identity)
-
-    # # add edges
-    # for node in self.all_nodes:
-    #     for connection in node.connections:
-    #         self.graph.add_edges_from([(node.ID, connection.ID)])
-
-
-    # plt.figure(figsize=(8, 8))
-    # color_map = ["lightblue" if node[1]["group"] == "L" else "#FF6666" for node in self.graph.nodes(data=True)]
-    # pos = nx.spring_layout(graph)
-
-    # plt.title("Network Visualization")
-
+    plt.show
 
     # def plot_degree_distribution(self):
     #     # calculate degrees of all nodes
