@@ -35,10 +35,15 @@ def self_sort(frame, network, graph, colors, pos, pos_target, ax, seedje, all_al
     """
     framestep = 50
     ax.clear()
-
-    for _ in range(100):
+    num_updates = 1000
+    for i in range(num_updates):
         network.update_round()
         all_alterations += network.alterations
+
+        # not too many updates in one step
+        if all_alterations > 0.02 * len(network.all_nodes):
+            num_updates=i
+            break
 
     
     graph.clear_edges()
@@ -46,10 +51,14 @@ def self_sort(frame, network, graph, colors, pos, pos_target, ax, seedje, all_al
         graph.add_edge(connection[0].ID, connection[1].ID)
     
     if frame % framestep == 0:
-        print(f"between frames {frame}, {frame+framestep} there were {all_alterations} alterations made")
+        if frame==0:
+            waarde = 0
+        else:
+            waarde = frame - framestep
+        print(f"between frames {waarde}, {frame} there were {all_alterations} alterations made ({num_updates} network updates made)")
         all_alterations= 0
         seedje += frame
-        pos_target.update(nx.spring_layout(graph, k=0.2, iterations=50, seed=seedje))  # Update target positions
+        pos_target.update(nx.spring_layout(graph, k=0.5, iterations=50, seed=seedje))  # Update target positions
 
     # Smoothly interpolate positions between frames
     alpha = (frame % framestep) / 1000
@@ -62,9 +71,10 @@ def self_sort(frame, network, graph, colors, pos, pos_target, ax, seedje, all_al
         ax=ax,
         with_labels=False, 
         node_color=colors, 
-        node_size=50, 
-        font_size=12, 
-        edge_color="gray"
+        node_size=20, 
+        # font_size=12, 
+        edge_color="grey", 
+        width = 0.4
     )
     ax.set_title(f"frame: {frame}", fontsize=14)
 
@@ -78,16 +88,16 @@ def plot_network(network):
     fig, ax = plt.subplots(figsize=(6, 6))
     graph, colors = initial_graph(network)
     seedje = 33
-    pos = nx.spring_layout(graph, k=0.2, iterations=25, seed=seedje)
+    pos = nx.spring_layout(graph, k=0.5, iterations=25, seed=seedje)
     pos_target = pos.copy()
 
     # Create the animation
     ani = FuncAnimation(
         fig, 
         self_sort, 
-        frames=500, 
-        interval=200,  
+        frames=200, 
+        interval=100,  
         fargs=(network, graph, colors, pos, pos_target, ax, seedje)
     )
-    ani.save("animations/network_animation.gif", fps=10, writer="pillow")
+    ani.save("animations/network_animation.gif", fps=20, writer="pillow")
     plt.show()
