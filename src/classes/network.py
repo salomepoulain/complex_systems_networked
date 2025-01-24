@@ -84,8 +84,6 @@ class Network:
         stims = np.random.multivariate_normal(mean = [self.mean, self.mean], cov = covar, size = 1)
         stims_perc = stats.norm.cdf(stims, loc = 0, scale = 1) 
         return stims_perc[0][0], stims_perc[0][1]
-    
-
 
     def run_cascade(self, sL, sR, all_samplers):
         """
@@ -97,14 +95,12 @@ class Network:
         union_to_consider= set()
         all_left, all_right = all_samplers
 
-        all_players = all_left.union(all_right)
-        # print(len(all_players))
-        
+        # all_players = all_left.union(all_right)
 
         # inject news for left oriented nodes
         for nodeL in all_left:
             nodeL.reset_node()
-            active_state, to_consider_L = nodeL.respond(sL, all_players)
+            active_state, to_consider_L = nodeL.respond(sL)
             if active_state:
                 union_to_consider.update(to_consider_L)
                 steady_state_reached = False
@@ -113,7 +109,7 @@ class Network:
         # inject news for right oriented nodes
         for nodeR in all_right:
             nodeR.reset_node()
-            active_state, to_consider_R = nodeR.respond(sR, all_players)
+            active_state, to_consider_R = nodeR.respond(sR)
             if active_state:
                 union_to_consider.update(to_consider_R)
                 steady_state_reached = False
@@ -190,17 +186,16 @@ class Network:
         # nog niet duidelijk of deze fractie bij beiden identities even groot is, of wat de fractie grootte moet zijn
         ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
         # Select a fraction of nodes to become sampled
-        number_of_samplers = 0
         all_samplers_L, all_samplers_R = set(), set()
         for node in np.random.choice(list(self.all_nodes), int(len(self.all_nodes) * self.update_fraction), replace=False):
-            number_of_samplers+=1
-
             if node.identity == 'L':
                 all_samplers_L.add(node)
             elif node.identity == 'R':
                 all_samplers_R.add(node)
             else:
                 raise ValueError("node identity should be assigned")
+            assert node.sampler_state == False, "at this point all samplers states should be false"
+            assert node.activation_state == False, "at this point all nodes should be inactive"
             node.sampler_state = True
 
         # Respond to the news intensities, continue this untill steady state is reached
@@ -210,8 +205,8 @@ class Network:
         self.network_adjustment(sL, sR)
 
         # Reset states for next round
-        self.activated = set()
-        for node in self.all_nodes:
-            node.reset_sampler()
+        for node in self.activated:
             node.reset_activation_state()
+            
+        self.activated = set()
 

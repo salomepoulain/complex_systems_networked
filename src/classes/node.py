@@ -4,7 +4,6 @@ class Node:
     def __init__(self, ID, identity, seed=None):
         self.ID = ID
         self.identity: str = identity
-        self.seed = seed
         self.node_connections = set()
         self.response_threshold = self.set_response(seed)
         self.activation_state = False
@@ -42,7 +41,7 @@ class Node:
 
 
         
-    def respond(self, intensity=0, inset = set(), analyze=False):
+    def respond(self, intensity=0, inset=set(), analyze=False):
         """
         respond to the news intensity and returns False if the activation state did not change, True otherwise.
         """
@@ -51,10 +50,11 @@ class Node:
         actually_activated = []
         new_activation_state = False
 
-        if len(inset) > 0:
-            if self.sampler_state:
-                new_activation_state = intensity > self.response_threshold
-                assert self in inset, "value should be contained in this set"
+        # if len(inset) > 0:
+        if self.sampler_state:
+            new_activation_state = intensity > self.response_threshold
+            self.sampler_state = False
+            # assert self in inset, "value should be contained in this set"
                 
         else:
             if len(self.node_connections) > 0: 
@@ -64,8 +64,10 @@ class Node:
             else:
                 fraction_activated = 0
             new_activation_state = fraction_activated > self.response_threshold
-                
-
+            # if new_activation_state == False: 
+            #     return False, set()  
+               
+        # assert self.activation_state == False, "only nodes should be selected that are inactive at this point"
         if not self.activation_state:
             if new_activation_state: 
                 self.activation_state = True
@@ -85,7 +87,8 @@ class Node:
                 self.cascade_size +=1
                 self.cascade_id.add(self.ID)
                 assert self.cascade_left <= self.cascade_size, "fraction of left can't be larger than its size"
-            return new_activation_state, self.node_connections.copy()
+            nodes_to_return = {n for n in self.node_connections if not n.activation_state}
+            return new_activation_state, nodes_to_return
 
         return False, set()
 
