@@ -265,6 +265,7 @@ class Network:
         """
         Perform a single update round.
         """
+        # print(self.alterations)
         self.alterations = 0
         if self.seed != None:
             self.seed+=1
