@@ -28,20 +28,8 @@ class Node:
     def reset_activation_state(self):
         self.activation_state = False
 
-    def respond_sampler(self, intensity):
-
-        new_activation_state = intensity > self.response_threshold
-
-        assert self.activation_state==False, "activation state can't be true at this point"
-        assert self.sampler_state==True, "node is not recognized as a sampler but treated as one"
-
-        if new_activation_state: 
-            self.activation_state = True
         
-
-
-        
-    def respond(self, intensity=0, inset=set(), analyze=False):
+    def respond(self, intensity=0, analyze=False):
         """
         respond to the news intensity and returns False if the activation state did not change, True otherwise.
         """
@@ -64,30 +52,36 @@ class Node:
             else:
                 fraction_activated = 0
             new_activation_state = fraction_activated > self.response_threshold
-            # if new_activation_state == False: 
-            #     return False, set()  
-               
+
         # assert self.activation_state == False, "only nodes should be selected that are inactive at this point"
         if not self.activation_state:
+            nodes_to_return = set()
             if new_activation_state: 
                 self.activation_state = True
             # assert new_activation_state == True, "The new state should only change to True, not to False"
+            
+                if analyze:
+                    self.last_of_cascade = True
+                    for neighbor in actually_activated:
+                        neighbor.last_of_cascade = False
+                        
+                        self.cascade_size += neighbor.cascade_size
+                        self.cascade_left += neighbor.cascade_left
+                        
+                        self.cascade_id.update(neighbor.cascade_id)
 
-            if analyze:
-                self.last_of_cascade = True
-                for neighbor in actually_activated:
-                    neighbor.last_of_cascade = False
-                    
-                    self.cascade_size += neighbor.cascade_size
-                    self.cascade_left += neighbor.cascade_left
-                    self.cascade_id.update(neighbor.cascade_id)
+                    if self.identity == "L":
+                        self.cascade_left +=1
+                    if self.identity =='L':
+                        waarde = 1
+                    else:
+                        waarde = -1
+                    self.cascade_size +=1
+                    self.cascade_id.add((int(self.ID), int(waarde)))
 
-                if self.ID == "L":
-                    self.cascade_left +=1
-                self.cascade_size +=1
-                self.cascade_id.add(self.ID)
-                assert self.cascade_left <= self.cascade_size, "fraction of left can't be larger than its size"
-            nodes_to_return = {n for n in self.node_connections if not n.activation_state}
+                    assert self.cascade_left <= self.cascade_size, "fraction of left can't be larger than its size"
+
+                nodes_to_return = {n for n in self.node_connections if not n.activation_state}
             return new_activation_state, nodes_to_return
 
         return False, set()

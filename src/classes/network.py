@@ -15,7 +15,7 @@ class Network:
         self.update_fraction = update_fraction
 
         self.nodesL = {Node(i, "L", seed=i*3) for i in range(int(num_nodes * starting_distribution))}
-        self.nodesR = {Node(i + len(self.nodesL), "R", seed=i+num_nodes*2) for i in range(int(num_nodes * (1 - starting_distribution)))}
+        self.nodesR = {Node(i + len(self.nodesL), "R", seed=i+num_nodes*3) for i in range(int(num_nodes * (1 - starting_distribution)))}
         self.connections = set()
         self.all_nodes = self.nodesL.union(self.nodesR)
         self.initialize_random_network()
@@ -85,7 +85,7 @@ class Network:
         stims_perc = stats.norm.cdf(stims, loc = 0, scale = 1) 
         return stims_perc[0][0], stims_perc[0][1]
 
-    def run_cascade(self, sL, sR, all_samplers):
+    def run_cascade(self, sL, sR, all_samplers, analyze=False):
         """
         Continue responding to the news intensities until a steady state is reached (no changes in activation state).
         This is the cascade event.
@@ -100,7 +100,7 @@ class Network:
         # inject news for left oriented nodes
         for nodeL in all_left:
             nodeL.reset_node()
-            active_state, to_consider_L = nodeL.respond(sL)
+            active_state, to_consider_L = nodeL.respond(sL, analyze=analyze)
             if active_state:
                 union_to_consider.update(to_consider_L)
                 steady_state_reached = False
@@ -109,7 +109,7 @@ class Network:
         # inject news for right oriented nodes
         for nodeR in all_right:
             nodeR.reset_node()
-            active_state, to_consider_R = nodeR.respond(sR)
+            active_state, to_consider_R = nodeR.respond(sR, analyze=analyze)
             if active_state:
                 union_to_consider.update(to_consider_R)
                 steady_state_reached = False
@@ -121,15 +121,74 @@ class Network:
 
             for individual in union_to_consider:
                 # omit redundant checks by returning only the neighbors of newly activated nodes. 
-                active_state, to_consider = individual.respond()
+                active_state, to_consider = individual.respond(analyze=analyze)
+
                 if active_state:
                     steady_state_reached=False
                     self.activated.add(individual)
                     new_to_consider.update(to_consider)
             union_to_consider = new_to_consider
 
-    def analyze_network(self, sL, sR):
-        pass
+    def analyze_network(self):
+
+        self.alterations = 0
+        if self.seed != None:
+            self.seed+=1
+        sL, sR = self.generate_news_significance()
+
+        all_samplers = self.pick_samplers()
+
+        self.run_cascade(sL, sR, all_samplers, True)
+        participating = [n.cascade_id for n in self.all_nodes if n.last_of_cascade]
+
+        if len(participating) == 0: 
+            print("no cascades in this round")
+            return [], [], []
+
+        
+        print("number of ending nodes:", len(participating))
+        # merge sets of nodes that contain 1 or more of the same node -> cascade is overlapping and thus merged
+        merged = []
+        
+        for current_set in participating:
+            found = False
+            for merged_set in merged:
+                # Check if there is an overlap
+                if not current_set.isdisjoint(merged_set):
+                    # Merge the sets if they overlap
+                    merged_set.update(current_set)
+                    found = True
+                    break
+            if not found:
+                # Add the current set as a new group
+                merged.append(current_set)
+        
+        number_nodes_within = sum(len(setje) for setje in merged)
+
+
+        print(f"number of total nodes in cascades {number_nodes_within}, number of active nodes {len(self.activated)}")
+        number_of_cascades = len(merged)
+        print(f"number of cascades {number_of_cascades}")
+        size_distiribution_cascades= [len(setje) for setje in merged]
+        fractions_polarized = [
+            sum(i for _, i in setje) / len(setje) if len(setje) > 0 else 0  # Avoid division by zero
+            for setje in merged
+        ]
+        
+
+        print(f"cascade size distribution: {size_distiribution_cascades}")
+        print(f"fraction polarizedn (negative is right, positive is left): {fractions_polarized}")
+        print('\n')
+
+        for node in self.activated:
+            node.reset_activation_state()
+            node.reset_node()
+            
+        self.activated = set()
+    	
+        return merged, size_distiribution_cascades, fractions_polarized
+
+
 
     def network_adjustment(self, sL, sR):
         """
@@ -171,6 +230,25 @@ class Network:
                 
                 assert number_of_connections == len(self.connections), "invalid operation took place, new number of edges is different than old"
 
+    def pick_samplers(self):
+        
+        if self.seed!= None:
+            self.seed +=1
+
+        np.random.seed(self.seed)
+        all_samplers_L, all_samplers_R = set(), set()
+        for node in np.random.choice(list(self.all_nodes), int(len(self.all_nodes) * self.update_fraction), replace=False):
+            if node.identity == 'L':
+                all_samplers_L.add(node)
+            elif node.identity == 'R':
+                all_samplers_R.add(node)
+            else:
+                raise ValueError("node identity should be assigned")
+            assert node.sampler_state == False, "at this point all samplers states should be false"
+            assert node.activation_state == False, "at this point all nodes should be inactive"
+            node.sampler_state = True
+        return (all_samplers_L, all_samplers_R)
+
 
     def update_round(self):
         """
@@ -186,20 +264,22 @@ class Network:
         # nog niet duidelijk of deze fractie bij beiden identities even groot is, of wat de fractie grootte moet zijn
         ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
         # Select a fraction of nodes to become sampled
-        all_samplers_L, all_samplers_R = set(), set()
-        for node in np.random.choice(list(self.all_nodes), int(len(self.all_nodes) * self.update_fraction), replace=False):
-            if node.identity == 'L':
-                all_samplers_L.add(node)
-            elif node.identity == 'R':
-                all_samplers_R.add(node)
-            else:
-                raise ValueError("node identity should be assigned")
-            assert node.sampler_state == False, "at this point all samplers states should be false"
-            assert node.activation_state == False, "at this point all nodes should be inactive"
-            node.sampler_state = True
+        # all_samplers_L, all_samplers_R = set(), set()
+        # for node in np.random.choice(list(self.all_nodes), int(len(self.all_nodes) * self.update_fraction), replace=False):
+        #     if node.identity == 'L':
+        #         all_samplers_L.add(node)
+        #     elif node.identity == 'R':
+        #         all_samplers_R.add(node)
+        #     else:
+        #         raise ValueError("node identity should be assigned")
+        #     assert node.sampler_state == False, "at this point all samplers states should be false"
+        #     assert node.activation_state == False, "at this point all nodes should be inactive"
+        #     node.sampler_state = True
+
+        allsamplers = self.pick_samplers()
 
         # Respond to the news intensities, continue this untill steady state is reached
-        self.run_cascade(sL, sR, (all_samplers_L, all_samplers_R))
+        self.run_cascade(sL, sR, allsamplers)
 
         # Network adjustment
         self.network_adjustment(sL, sR)
@@ -209,4 +289,5 @@ class Network:
             node.reset_activation_state()
             
         self.activated = set()
+
 
