@@ -1,12 +1,15 @@
 import numpy as np
+from collections import OrderedDict
 
 class Node:
-    def __init__(self, ID, identity, seed=None):
+    def __init__(self, ID, identity, rng=None):
         self.ID = ID
         self.identity: str = identity
         self.node_connections = set()
-        self.response_threshold = self.set_response(seed)
+        # self.response_threshold = self.set_response(seed)
         self.activation_state = False
+
+        self.response_threshold = rng.random() if rng else np.random.random()
         self.sampler_state = False
 
         self.cascade_size = 0
@@ -15,9 +18,9 @@ class Node:
         self.cascade_id = set()
 
 
-    def set_response(self, seed):
-        np.random.seed(seed)
-        return np.random.random()
+    # def set_response(self, seed):
+    #     np.random.seed(seed)
+    #     return np.random.random()
     
     def make_sampler(self):
         self.sampler_state = True
@@ -62,20 +65,20 @@ class Node:
             
                 if analyze:
                     self.last_of_cascade = True
-                    for neighbor in actually_activated:
-                        neighbor.last_of_cascade = False
-                        
-                        self.cascade_size += neighbor.cascade_size
-                        self.cascade_left += neighbor.cascade_left
-                        
-                        self.cascade_id.update(neighbor.cascade_id)
-
                     if self.identity == "L":
                         self.cascade_left +=1
                     if self.identity =='L':
                         waarde = 1
                     else:
                         waarde = -1
+                    for neighbor in actually_activated:
+                        neighbor.last_of_cascade = False
+                        
+                        self.cascade_size += neighbor.cascade_size
+                        self.cascade_left += neighbor.cascade_left
+                        # assert (int(self.ID), int(waarde)) not in neighbor.cascade_id, "this node is already part of cascade"
+                        self.cascade_id.update(neighbor.cascade_id)
+                    
                     self.cascade_size +=1
                     self.cascade_id.add((int(self.ID), int(waarde)))
 
