@@ -8,7 +8,6 @@ correlation = -1
 update_fraction = 0.1
 starting_distribution = 0.5
 p = 0.1
-# k = 2
 num_runs = 10
 steady_state_iter = 1e4
 
