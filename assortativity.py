@@ -83,7 +83,7 @@ def calculate_assortativity(network_type, steady_state_iter, num_nodes, correlat
 
     return assort_coefs
 
-def run_experiment(num_threads, num_runs, network_type, steady_state_iter, num_nodes, correlations, update_fraction, starting_distribution, p):
+def run_assortativity_experiment(num_threads, num_runs, network_type, steady_state_iter, num_nodes, correlations, update_fraction, starting_distribution, p):
     """Runs the experiment for the assortativity coefficient in parallel.
 
     Args:
@@ -119,26 +119,26 @@ def run_experiment(num_threads, num_runs, network_type, steady_state_iter, num_n
 
 
 # if __name__ == '__main__':
-    # num_nodes = 100
-    # correlations = [-1, -0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1]
-    # update_fraction = 0.1
-    # starting_distribution = 0.5
-    # p = 0.04
-    # num_runs = 14
-    # steady_state_iter = 1e4
-    # network_type = 'random'
+#     num_nodes = 100
+#     correlations = [-1, -0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1]
+#     update_fraction = 0.1
+#     starting_distribution = 0.5
+#     p = 0.04
+#     num_runs = 14
+#     steady_state_iter = 1e4
+#     network_type = 'random'
 
-    # parameter_list = [
-    #     (network_type, steady_state_iter, num_nodes, correlations, update_fraction, starting_distribution, p)
-    #     for _ in range(num_runs)
-    # ]
+#     parameter_list = [
+#         (network_type, steady_state_iter, num_nodes, correlations, update_fraction, starting_distribution, p)
+#         for _ in range(num_runs)
+#     ]
 
-    # start = time.time()
-    # results = execute_experiment(14, parameter_list)
-    # stop = time.time()
-    # print(f'Duration: {(stop-start)/60} min')
+#     start = time.time()
+#     results = execute_experiment(14, parameter_list)
+#     stop = time.time()
+#     print(f'Duration: {(stop-start)/60} min')
 
-    # data = np.vstack(results)
-    # mean = np.mean(data, axis=0)
-    # std = 1.96 * np.std(data, axis=0) / np.sqrt(num_runs) # confidence intervals at p = 95% confidence level
-    # plot_results(correlations, mean, std)
+#     data = np.vstack(results)
+#     mean = np.mean(data, axis=0)
+#     std = 1.96 * np.std(data, axis=0) / np.sqrt(num_runs) # confidence intervals at p = 95% confidence level
+#     plot_results(correlations, mean, std)
