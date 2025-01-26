@@ -5,12 +5,10 @@ from scipy import stats
 import numpy as np
 import matplotlib.pyplot as plt
 from powerlaw import Fit
+import bisect
 
 class Network:
-    def __init__(self, network, num_nodes, mean=0, correlation=-1, starting_distribution=0.5, update_fraction=0.2, seed=None, p=0.1, k=None, m=2):
-        self.p = p
-        self.k = k
-        self.m = m
+    def __init__(self, num_nodes=200, mean=0, correlation=-1, starting_distribution=0.5, update_fraction=0.2, seed=None):
         self.seed = seed
         self.correlation = correlation 
         self.mean = mean
@@ -22,130 +20,6 @@ class Network:
         self.nodesR = {Node(i + len(self.nodesL), "R", seed=i+num_nodes*2) for i in range(int(num_nodes * (1 - starting_distribution)))}
         self.connections = set()
         self.all_nodes = self.nodesL.union(self.nodesR)
-        
-        if network == 'scale_free':
-            self.initialize_scale_free_network()
-        elif network == 'random':
-            self.initialize_random_network()
-        else:
-            assert network is None, "Invalid network type provided. Use 'scale_free' or 'random'."
-        
-
-    def initialize_random_network(self):
-        """
-        Initialize the network by connecting all nodes with a probability `p`.
-        If `p` is very low, the network will resemble a regular network with fixed degree `k`.
-        If `p` is high, it will resemble an Erdős–Rényi random network.
-        """
-
-        np.random.seed(self.seed)
-        if self.seed != None:
-            self.seed+=1
-        if self.k is not None:
-            print(f"A Wattz-Strogatz network is initialized with beta value {self.p} and regular network degree {self.k}")
-            # If degree `k` is provided, ensure each node has exactly `k` connections.
-            # This creates a regular network first, and then we adjust using `p`.
-            for node1 in self.all_nodes:
-                # Create k regular connections for each node
-                available_nodes = list(self.all_nodes - {node1})
-                for _ in range(self.k):
-                    node2 = np.random.choice(available_nodes)
-                    self.add_connection(node1, node2)
-                    available_nodes.remove(node2)
-
-            # Now use `p` to add random edges between any pair of nodes
-            for node1 in self.all_nodes:
-                for node2 in self.all_nodes:
-                    if node1 != node2 and (node2 not in node1.node_connections):
-                        if np.random.random() < self.p:
-                            self.add_connection(node1, node2)
-        else:
-            print(f'A random network is initialized with p: {self.p} and {len(self.all_nodes)} nodes')
-            # If no degree `k` is provided, fall back to the Erdős–Rényi model
-            for node1 in self.all_nodes:
-                for node2 in self.all_nodes:
-                    if node1 != node2 and (node2 not in node1.node_connections):
-                        if np.random.random() < self.p:
-                            self.add_connection(node1, node2)
-
-    def initialize_scale_free_network(self):
-        assert self.m < len(self.all_nodes), "Number of connections `m` must be less than the number of nodes."
-        assert self.m > 0, "Number of connections `m` must be greater than 0."
-
-        # Create a list of nodes to work with
-        all_nodes_list = list(self.all_nodes)
-
-        # Select initial m nodes and fully connect them
-        m0_nodes = random.sample(all_nodes_list, self.m)
-        for i in range(len(m0_nodes)):
-            for j in range(i + 1, len(m0_nodes)):
-                self.add_connection(m0_nodes[i], m0_nodes[j])
-
-        # Track degrees for preferential attachment
-        degrees = {node: len(node.node_connections) for node in self.all_nodes if node in m0_nodes}
-
-        # Add remaining nodes using preferential attachment
-        remaining_nodes = list(set(all_nodes_list) - set(m0_nodes))
-
-        for new_node in remaining_nodes:
-            # Calculate cumulative degree distribution for preferential attachment
-            total_degree = sum(degrees.values())
-            cumulative_probabilities = []
-            cumulative_sum = 0
-
-            connection_candidates = list(degrees.keys())
-            for node in connection_candidates:
-                cumulative_sum += degrees[node] / total_degree
-                cumulative_probabilities.append(cumulative_sum)
-
-            # Select nodes to connect to, with probability proportional to their degree
-            connected_nodes = set()
-            while len(connected_nodes) < self.m:
-                r = random.random()
-                for idx, cumulative_prob in enumerate(cumulative_probabilities):
-                    if r <= cumulative_prob:
-                        connected_nodes.add(connection_candidates[idx])
-                        break
-
-            # Add connections
-            for target_node in connected_nodes:
-                self.add_connection(new_node, target_node)
-                degrees[target_node] += 1  # Update degree for target node
-
-            degrees[new_node] = self.m  # New node has `m` connections
-
-        # Verify scale-free properties and optionally plot
-        self.verify_scale_free_distribution(plot=True)
-
-    def verify_scale_free_distribution(self, plot):
-        """
-        Check if the network exhibits scale-free characteristics
-        """
-        # Calculate node degrees
-        degrees = [len(node.node_connections) for node in self.all_nodes]
-        
-        # Compute log-log plot for degree distribution
-        degree_counts = {}
-        for degree in degrees:
-            degree_counts[degree] = degree_counts.get(degree, 0) + 1
-        
-        unique_degrees = list(degree_counts.keys())
-        frequencies = list(degree_counts.values())
-        
-        if plot:
-            plt.figure(figsize=(10, 6))
-            plt.loglog(unique_degrees, frequencies, 'bo')
-            plt.title('Degree Distribution (Log-Log Scale)')
-            plt.xlabel('Degree')
-            plt.ylabel('Frequency')
-            plt.show()
-        
-        # Basic scale-free network indicators
-        assert max(degrees) > np.mean(degrees) * 2, "Network lacks high-degree nodes"
-        assert len([d for d in degrees if d > np.mean(degrees) * 2]) > 0, "No significant hub nodes"
-        fit = Fit(degrees)
-        print("Power-law alpha:", fit.power_law.alpha)
-        print("Goodness of fit (p-value):", fit.power_law.KS())
 
     def add_connection(self, node1, node2):
         """Add an undirected connection between two nodes (if not already present)."""
@@ -162,7 +36,7 @@ class Network:
             node2.remove_edge(node1)
             self.connections.remove((node1, node2))
             self.connections.remove((node2, node1))
-        
+
     def generate_news_significance(self):
         """
         Generate news signifiance for both hubs based on their correlation.
@@ -183,8 +57,6 @@ class Network:
         steady_state_reached = True
         union_to_consider= set()
         all_left, all_right = all_samplers
-
-        # all_players = all_left.union(all_right)
 
         # inject news for left oriented nodes
         for nodeL in all_left:
@@ -216,9 +88,7 @@ class Network:
                     self.activated.add(individual)
                     new_to_consider.update(to_consider)
             union_to_consider = new_to_consider
-
-    def analyze_network(self, sL, sR):
-        pass
+            
 
     def network_adjustment(self, sL, sR):
         """
@@ -260,7 +130,6 @@ class Network:
                 
                 assert number_of_connections == len(self.connections), "invalid operation took place, new number of edges is different than old"
 
-
     def update_round(self):
         """
         Perform a single update round.
@@ -298,4 +167,303 @@ class Network:
             node.reset_activation_state()
             
         self.activated = set()
+
+
+class RandomNetwork(Network):
+    def __init__(self, p=0.1, k=8, **kwargs):
+        super().__init__(**kwargs)
+        self.p = p
+        self.k = k
+
+        self.initialize_network()
+
+    def initialize_network(self):
+        """
+        Initialize the network by connecting all nodes with a probability `p`.
+        If `p` is very low, the network will resemble a regular network with fixed degree `k`.
+        If `p` is high, it will resemble an Erdős–Rényi random network.
+        """
+        np.random.seed(self.seed)
+        if self.seed != None:
+            self.seed+=1
+        if self.k is not None:
+            print(f"A Wattz-Strogatz network is initialized with beta value {self.p} and regular network degree {self.k}")
+            # If degree `k` is provided, ensure each node has exactly `k` connections.
+            # This creates a regular network first, and then we adjust using `p`.
+            for node1 in self.all_nodes:
+                # Create k regular connections for each node
+                available_nodes = list(self.all_nodes - {node1})
+                for _ in range(self.k):
+                    node2 = np.random.choice(available_nodes)
+                    self.add_connection(node1, node2)
+                    available_nodes.remove(node2)
+
+            # Now use `p` to add random edges between any pair of nodes
+            for node1 in self.all_nodes:
+                for node2 in self.all_nodes:
+                    if node1 != node2 and (node2 not in node1.node_connections):
+                        if np.random.random() < self.p:
+                            self.add_connection(node1, node2)
+        else:
+            print(f'A random network is initialized with p: {self.p} and {len(self.all_nodes)} nodes')
+            # If no degree `k` is provided, fall back to the Erdős–Rényi model
+            for node1 in self.all_nodes:
+                for node2 in self.all_nodes:
+                    if node1 != node2 and (node2 not in node1.node_connections):
+                        if np.random.random() < self.p:
+                            self.add_connection(node1, node2)
+
+
+class ScaleFreeNetwork(Network):
+    def __init__(self, m=2, **kwargs):
+        super().__init__(**kwargs)
+        self.m = m
+
+        self.nodes_list = list(self.all_nodes)
+        self.degree_distribution = {} 
+        self.total_degree = 0
+        self.cumulative_degree_list = []
+
+        self.initialize_network()
+
+    def _pick_node_by_degree_global(self, forbidden=set(), max_tries=100):
+        """
+        Pick a node (not in 'forbidden') by sampling from self.cumulative_degree_list.
+        Returns the chosen node or None if we fail after max_tries.
+        """
+        assert len(self.cumulative_degree_list) == len(self.degree_distribution), (
+            "Cumulative degree list and degree distribution lengths do not match."
+        )
+        assert self.total_degree > 0, "Total degree must be positive for preferential sampling."
+
+        for _ in range(max_tries):
+            target_sum = random.random() * self.total_degree
+    
+            # Use binary search to find the index of the selected node
+            idx = bisect.bisect_left(self.cumulative_degree_list, target_sum)
+            if idx >= len(self.nodes_list):
+                idx = len(self.nodes_list) - 1  # Safeguard against index overflow
+
+            candidate = self.nodes_list[idx]
+            
+            # Check if the candidate is not in the forbidden set
+            if candidate not in forbidden:
+                return candidate
+
+        # If we fail after max_tries, return None
+        assert candidate is None, "Failed to pick a node after max_tries."
+        return None
+
+    def add_connection(self, node1, node2):
+        """
+        Add an undirected connection between two nodes, updating:
+            - self.connections
+            - self.degree_distribution
+            - self.total_degree
+            - self.cumulative_degree_list
+        """
+        if node1 != node2 and (node1, node2) not in self.connections:
+            node1.add_edge(node2)
+            node2.add_edge(node1)
+            self.connections.add((node1, node2))
+            self.connections.add((node2, node1))
+
+            # Update degree distribution
+            self.degree_distribution[node1] = self.degree_distribution.get(node1, 0) + 1
+            self.degree_distribution[node2] = self.degree_distribution.get(node2, 0) + 1
+            self.total_degree += 2  # 2 'ends' of edges
+
+            # Rebuild the cumulative sums for probability sampling
+            self._rebuild_cumulative_list()
+
+    def remove_connection(self, node1, node2):
+        """
+        Remove an undirected connection between two nodes (if it exists), updating:
+            - self.connections
+            - self.degree_distribution
+            - self.total_degree
+            - self.cumulative_degree_list
+        """
+        if node1 != node2 and (node1, node2) in self.connections:
+            node1.remove_edge(node2)
+            node2.remove_edge(node1)
+            self.connections.remove((node1, node2))
+            self.connections.remove((node2, node1))
+
+            # Update degree distribution
+            self.degree_distribution[node1] -= 1
+            self.degree_distribution[node2] -= 1
+            self.total_degree -= 2
+
+            self._rebuild_cumulative_list()
+
+    def _rebuild_cumulative_list(self):
+        """
+        Rebuild 'cumulative_degree_list' from 'degree_distribution'.
+        cumulative_degree_list[i] = sum of degrees up to the i-th node in iteration order.
+        This is used for efficient probability-based node selection via bisect.
+        """
+        self.cumulative_degree_list.clear()
+        running_sum = 0
+        for deg in self.degree_distribution.values(): # IMPORTANT THIS MAINTANS ORDER
+            running_sum += deg
+            self.cumulative_degree_list.append(running_sum)
+        
+    def initialize_network(self):
+        """
+        1) Select m initial nodes, fully connect them (seed network).
+        2) For each remaining node, connect it to m existing nodes with probability 
+        = (node_degree / total_degree) using _pick_node_by_degree_global().
+        3) Assertions ensure total_degree > 0 for valid probability-based sampling.
+        """
+        # Basic checks
+        n = len(self.nodes_list)
+        assert self.m > 0, "m must be positive."
+        assert self.m < n, "Number of connections 'm' must be less than number of nodes."
+
+        # Initialize degree_distribution to 0 for all nodes
+        for node in self.nodes_list:
+            self.degree_distribution[node] = 0
+
+        # Step 1: Pick m initial nodes and fully connect them
+        m0_nodes = random.sample(self.nodes_list, self.m)
+
+        if self.m > 1:  # Fully connect seed nodes only if m > 1
+            for i in range(len(m0_nodes)):
+                for j in range(i + 1, len(m0_nodes)):
+                    self.add_connection(m0_nodes[i], m0_nodes[j])
+        else:  # Handle the case for m=1
+            # If m=1, connect the seed node to another random node
+            random_node = random.choice([node for node in self.nodes_list if node not in m0_nodes])
+            self.add_connection(m0_nodes[0], random_node)
+
+        # Ensure cumulative degree list is rebuilt after seed network
+        self._rebuild_cumulative_list()
+
+        # Ensure total_degree is initialized properly
+        assert self.total_degree > 0, "Seed network must have edges, so total_degree > 0."
+
+        # Step 2: For the remaining nodes, attach each with m edges via scale-free selection
+        remaining_nodes = list(set(self.all_nodes) - set(m0_nodes))
+        for new_node in remaining_nodes:
+            assert self.total_degree > 0, "Cannot do preferential attachment if total_degree = 0."
+
+            # Use a set to track which nodes have already been chosen
+            chosen = set()
+            forbidden = {new_node}  # Prevent self-loops
+
+            while len(chosen) < self.m:
+                candidate = self._pick_node_by_degree_global(forbidden=forbidden, max_tries=500)
+                chosen.add(candidate)
+                forbidden.add(candidate)  # Ensure unique connections
+
+            # Add edges to the chosen nodes
+            for target_node in chosen:
+                self.add_connection(new_node, target_node)
+
+        assert all(degree >= self.m for degree in self.degree_distribution.values()), (
+            f"Some nodes have degree less than m={self.m}. Check initialization logic."
+        )
+
+        # Step 4: Verify the scale-free properties
+        self.verify_scale_free_distribution(plot=True)
+
+
+
+
+
+    def verify_scale_free_distribution(self, plot):
+        """
+        Check if the network exhibits scale-free characteristics
+        """
+        # Calculate node degrees
+        degrees = [len(node.node_connections) for node in self.all_nodes]
+        
+        # Compute log-log plot for degree distribution
+        degree_counts = {}
+        for degree in degrees:
+            degree_counts[degree] = degree_counts.get(degree, 0) + 1
+        
+        unique_degrees = list(degree_counts.keys())
+        frequencies = list(degree_counts.values())
+        
+        if plot:
+            plt.figure(figsize=(10, 6))
+            plt.loglog(unique_degrees, frequencies, 'bo')
+            plt.title('Degree Distribution (Log-Log Scale)')
+            plt.xlabel('Degree')
+            plt.ylabel('Frequency')
+            plt.show()
+
+        assert all(degree >= self.m for degree in self.degree_distribution.values()), (
+        f"Some nodes have degree less than m={self.m}. Check initialization logic."
+        )
+        
+        # Basic scale-free network indicators
+        assert max(degrees) > np.mean(degrees) * 2, "Network lacks high-degree nodes"
+        assert len([d for d in degrees if d > np.mean(degrees) * 2]) > 0, "No significant hub nodes"
+        fit = Fit(degrees)
+        print(f"Power-law fit: alpha={fit.power_law.alpha}, KS={fit.power_law.KS()}")
+        assert fit.power_law.KS() < 0.3, f"Power-law fit is not significant; {fit.power_law.KS()}"
+        assert fit.power_law.alpha < 6, f"Power-law exponent is too high; {fit.power_law.alpha}"
+
+    def network_adjustment(self, sL, sR):
+        """
+        Adjust the network by breaking ties and adding new connections in a scale-free manner.
+        """
+
+        # Ensure there are activated nodes
+        assert len(self.activated) > 0, "No activated nodes available for adjustment."
+
+        # Select a valid active node with more than m connections
+        active_node = np.random.choice(list(self.activated))
+        retries = 100  # Limit retries to avoid infinite loops
+        while len(active_node.node_connections) <= self.m and retries > 0:
+            active_node = np.random.choice(list(self.activated))
+            retries -= 1
+
+        if retries == 0:
+            return
+        # assert retries > 0, "No active node with sufficient connections found after retries."         ####################### DIT GEBEURD DIS SOMS
+        assert len(active_node.node_connections) > self.m, "Selected active node does not have enough connections."
+
+        # Check if the active node satisfies the conditions for breaking ties
+        if not (
+            (active_node.identity == 'L' and sL <= active_node.response_threshold)
+            or (active_node.identity == 'R' and sR <= active_node.response_threshold)
+        ):
+            return  # Skip adjustment if the active node does not meet conditions
+
+        # Identify active neighbors
+        active_neighbors = {n for n in active_node.node_connections if n.activation_state}
+        assert len(active_neighbors) > 0, f"Active node {active_node} has no active neighbors to break ties with."
+
+        for _ in range(100):  
+            break_node = np.random.choice(list(active_neighbors))
+            if len(break_node.node_connections) > self.m:
+                self.remove_connection(active_node, break_node)
+                break
+        else:
+            return 
+
+        # Assert that the edge was removed successfully
+        assert len(active_node.node_connections) >= self.m, "Edge removal violated minimum degree constraint."
+        assert len(break_node.node_connections) >= self.m, "Edge removal violated minimum degree constraint."
+
+        # Add a new edge according to scale-free properties
+        node1 = self._pick_node_by_degree_global()
+        assert node1 is not None, "Failed to pick a valid node1 for rewiring."
+
+        forbidden = set(node1.node_connections) | {node1, active_node}
+        node2 = self._pick_node_by_degree_global(forbidden=forbidden)
+        assert node2 is not None, "Failed to pick a valid node2 for rewiring."
+
+        self.add_connection(node1, node2)
+
+        self.alterations = self.alterations + 1
+
+        # Ensure network integrity after adjustment
+        assert all(len(node.node_connections) >= self.m for node in [active_node, break_node, node1, node2]), (
+            "Network adjustment violated the minimum degree constraint."
+        )
 
