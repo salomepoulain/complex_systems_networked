@@ -5,6 +5,7 @@ import numpy as np
 from multiprocessing import Pool
 import os
 import time
+import pandas as pd
 
 def execute_experiment(num_processes, parameters):
     """Initializes a pool of threads to run the simulation in parallel.
@@ -25,11 +26,12 @@ def execute_experiment(num_processes, parameters):
 
 def plot_results(x_data, y_data, std):
     """Plot the calculated data."""
-    plt.figure(figsize=(7, 5))
+    plt.figure(figsize=(7, 5), dpi=200)
     plt.scatter(x_data, y_data, color='blue')
     plt.fill_between(x_data, y_data - std, y_data + std, color='blue', alpha=0.5)
     plt.xlabel(r'Information Ecosystem $\gamma$', fontsize=14)
     plt.ylabel('Political Assortativity', fontsize=14)
+    plt.tight_layout()
     plt.show()
 
 def convert_to_nx(network):
@@ -51,7 +53,7 @@ def convert_to_nx(network):
 
     return graph
 
-def calculate_assortativity(network_type, steady_state_iter, num_nodes, correlations, update_fraction, starting_distribution, p):
+def calculate_assortativity(network_type, steady_state_iter, num_nodes, correlations, update_fraction, starting_distribution, p, m):
     """Calculate assortativity coefficient based on different correlations and network parameters.
 
     Args:
@@ -62,6 +64,7 @@ def calculate_assortativity(network_type, steady_state_iter, num_nodes, correlat
         update_fraction (float): fraction of nodes that directly sample the news
         starting_distribution (float): fraction of nodes L (or R)
         p (float, optional): probability to create an edge. Defaults to 0.1.
+        m (int): number of connections for each node in a scale-free network.
 
     Returns:
         arrays containing the mean assortativity coefficient and the corresponding standard deviation
@@ -71,7 +74,7 @@ def calculate_assortativity(network_type, steady_state_iter, num_nodes, correlat
     for j, corr in enumerate(correlations):
 
         network = Network(network_type, num_nodes, mean=0, correlation=corr, starting_distribution=starting_distribution, 
-                          update_fraction=update_fraction, p=p)
+                          update_fraction=update_fraction, p=p, m=m)
 
         for k in range(int(steady_state_iter)):
             network.update_round()
@@ -83,7 +86,7 @@ def calculate_assortativity(network_type, steady_state_iter, num_nodes, correlat
 
     return assort_coefs
 
-def run_assortativity_experiment(num_threads, num_runs, network_type, steady_state_iter, num_nodes, correlations, update_fraction, starting_distribution, p):
+def run_assortativity_experiment(num_threads, num_runs, network_type, steady_state_iter, num_nodes, correlations, update_fraction, starting_distribution, p, m, save_results=False):
     """Runs the experiment for the assortativity coefficient in parallel.
 
     Args:
@@ -96,12 +99,14 @@ def run_assortativity_experiment(num_threads, num_runs, network_type, steady_sta
         update_fraction (float): fraction of nodes that directly sample the news
         starting_distribution (float): fraction of nodes of identity L (or R)
         p (float): probability to create an edge in a random network
+        m (int): number of connections for each node in a scale-free network.
+        save_results (bool): option to save the results in a csv file
 
     Returns:
         array: arrays containing the mean and standard deviation (p = 95%) of the assortativity coefficient  
     """    
     parameter_list = [
-        (network_type, steady_state_iter, num_nodes, correlations, update_fraction, starting_distribution, p)
+        (network_type, steady_state_iter, num_nodes, correlations, update_fraction, starting_distribution, p, m)
         for _ in range(num_runs)
     ]
 
@@ -113,32 +118,23 @@ def run_assortativity_experiment(num_threads, num_runs, network_type, steady_sta
     data = np.vstack(results)
     mean = np.mean(data, axis=0)
     std = 1.96 * np.std(data, axis=0) / np.sqrt(num_runs) # confidence intervals at p = 95% confidence level
+
+    # Save Results
+    if save_results:
+        dict_results = {
+            "correlations": correlations,
+            "mean assort": mean,
+            "conf_int": std,
+        }
+        df = pd.DataFrame(dict_results)
+        df.to_csv(f"assortativity_{network_type}_results.csv", index=False)
+
     plot_results(correlations, mean, std)
 
     return mean, std
 
 
-# if __name__ == '__main__':
-#     num_nodes = 100
-#     correlations = [-1, -0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1]
-#     update_fraction = 0.1
-#     starting_distribution = 0.5
-#     p = 0.04
-#     num_runs = 14
-#     steady_state_iter = 1e4
-#     network_type = 'random'
-
-#     parameter_list = [
-#         (network_type, steady_state_iter, num_nodes, correlations, update_fraction, starting_distribution, p)
-#         for _ in range(num_runs)
-#     ]
-
-#     start = time.time()
-#     results = execute_experiment(14, parameter_list)
-#     stop = time.time()
-#     print(f'Duration: {(stop-start)/60} min')
-
-#     data = np.vstack(results)
-#     mean = np.mean(data, axis=0)
-#     std = 1.96 * np.std(data, axis=0) / np.sqrt(num_runs) # confidence intervals at p = 95% confidence level
-#     plot_results(correlations, mean, std)
+if __name__ == '__main__':
+    data = run_assortativity_experiment(num_threads=14, num_runs=56, network_type='random', steady_state_iter=50000, num_nodes=100, 
+                                        correlations=[-1, -0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1], update_fraction=0.1, 
+                                        starting_distribution=0.5, p=0.05, m=2, save_results=True)

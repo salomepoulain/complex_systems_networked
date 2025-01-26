@@ -5,10 +5,11 @@ from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 import time
 import os
+import pandas as pd
 
 def plot_results(x_data, mean_same, std_same, mean_diff, std_diff):
     """Plot the change in social ties."""
-    plt.figure(figsize=(7,5))
+    plt.figure(figsize=(7,5), dpi=200)
     plt.scatter(x_data, mean_same, color='blue', label='Same Ideology')
     plt.fill_between(x_data, mean_same - std_same, mean_same + std_same, color='blue', alpha=0.5)
     plt.scatter(x_data, mean_diff, color='red', label='Different Ideology')
@@ -18,6 +19,7 @@ def plot_results(x_data, mean_same, std_same, mean_diff, std_diff):
     plt.ylabel(r'Net $\Delta$ social ties', fontsize=14)
     plt.xlim(-1.1, 1.1)
     plt.legend()
+    plt.tight_layout()
     plt.show()
 
 def gather_social_ties(network):
@@ -66,7 +68,7 @@ def calculate_net_gain_loss(initial, final):
 
     return np.mean(same_ideologies), np.mean(diff_ideologies)
 
-def calculate_net_social_ties(network_type, steady_state_iter, num_nodes, correlation, starting_distribution, update_fraction, p, dummy=None):
+def calculate_net_social_ties(network_type, steady_state_iter, num_nodes, correlation, starting_distribution, update_fraction, p, m, dummy=None):
     """Creates the network and calculates the net social ties.
 
     Args:
@@ -77,13 +79,14 @@ def calculate_net_social_ties(network_type, steady_state_iter, num_nodes, correl
         starting_distribution (float): fraction of nodes with identity L or R
         update_fraction (float): fraction of nodes that directly sample the news
         p (float): probability of creating an edge
+        m (int): number of connections for each node in a scale-free network.
         dummy : dummy variable, ignore.
 
     Returns:
         tuple: average net social ties for different and opposing ideologies over all nodes
     """    
     network = Network(network=network_type, num_nodes=num_nodes, mean=0, correlation=correlation, 
-                        starting_distribution=starting_distribution, update_fraction=update_fraction, p=p)
+                        starting_distribution=starting_distribution, update_fraction=update_fraction, p=p, m=m)
         
     initial_social_ties = gather_social_ties(network)
 
@@ -96,7 +99,7 @@ def calculate_net_social_ties(network_type, steady_state_iter, num_nodes, correl
 
     return mean_same, mean_diff
 
-def social_ties_vs_ecosystem_parallel(num_threads, num_runs, network_type, steady_state_iter, num_nodes, correlations, starting_distribution, update_fraction, p):
+def social_ties_vs_ecosystem_parallel(num_threads, num_runs, network_type, steady_state_iter, num_nodes, correlations, starting_distribution, update_fraction, p, m):
     """Run the social ties experiment in parallel and for multiple values of the news correlation
 
     Args:
@@ -109,6 +112,7 @@ def social_ties_vs_ecosystem_parallel(num_threads, num_runs, network_type, stead
         starting_distribution (float): fraction of nodes with identity L or R
         update_fraction (float): fraction of nodes that directly sample the news
         p (float): probability of creating an edge
+        m (int): number of connections for each node in a scale-free network.
 
     Returns:
         array: contains all the data from the experiments (mean and standard deviation)
@@ -117,7 +121,7 @@ def social_ties_vs_ecosystem_parallel(num_threads, num_runs, network_type, stead
     all_data_diff = np.zeros((len(correlations), 2))
     for i, corr in enumerate(correlations):
 
-        worker_function = partial(calculate_net_social_ties, network_type, steady_state_iter, num_nodes, corr, starting_distribution, update_fraction, p)
+        worker_function = partial(calculate_net_social_ties, network_type, steady_state_iter, num_nodes, corr, starting_distribution, update_fraction, p, m)
 
         with ProcessPoolExecutor(max_workers=num_threads) as executor:
             results = list(executor.map(worker_function, range(num_runs)))
@@ -130,7 +134,7 @@ def social_ties_vs_ecosystem_parallel(num_threads, num_runs, network_type, stead
 
     return all_data_same, all_data_diff
 
-def run_social_ties_experiment(num_threads, num_runs, network_type, steady_state_iter, num_nodes, correlations, starting_distribution, update_fraction, p):
+def run_social_ties_experiment(num_threads, num_runs, network_type, steady_state_iter, num_nodes, correlations, starting_distribution, update_fraction, p, m, save_results=False):
     """Runs the social ties experiment in parallel and plots the results.
 
     Args:
@@ -143,17 +147,30 @@ def run_social_ties_experiment(num_threads, num_runs, network_type, steady_state
         starting_distribution (float): fraction of nodes with identity L or R
         update_fraction (float): fraction of nodes that directly sample the news
         p (float): probability of creating an edge
+        m (int): number of connections for each node in a scale-free network.
+        save_results (bool): option to save results to csv file
     """    
     assert num_threads <= os.cpu_count(), 'Num threads must be less or equal than your CPU count.'
 
     start = time.time()
-    data_same, data_diff = social_ties_vs_ecosystem_parallel(num_threads, num_runs, network_type, steady_state_iter, num_nodes, correlations, starting_distribution, update_fraction, p)
+    data_same, data_diff = social_ties_vs_ecosystem_parallel(num_threads, num_runs, network_type, steady_state_iter, num_nodes, correlations, starting_distribution, update_fraction, p, m)
     stop = time.time()
     print(f'Duration: {(stop-start)/60} min')
+
+    if save_results:
+        dict_results = {
+            "Correlations": correlations,
+            "mean_same": data_same[:,0],
+            "std_same": data_same[:,1],
+            "mean_diff": data_diff[:,0],
+            "std_diff": data_diff[:,1],
+        }
+        df = pd.DataFrame(dict_results)
+        df.to_csv(f"social_ties_{network_type}_results.csv", index=False)
 
     plot_results(correlations, data_same[:, 0], data_same[:, 1], data_diff[:, 0], data_diff[:, 1])
 
 if __name__ == '__main__':
-    run_social_ties_experiment(num_threads=14, num_runs=56, network_type='random', steady_state_iter=10000, num_nodes=100, 
+    run_social_ties_experiment(num_threads=14, num_runs=56, network_type='random', steady_state_iter=50000, num_nodes=100, 
                                correlations=[-1, -0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1],
-                                starting_distribution=0.5, update_fraction=0.1, p=0.05)
+                                starting_distribution=0.5, update_fraction=0.1, p=0.05, m=2, save_results=True)
