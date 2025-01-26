@@ -16,11 +16,6 @@ class Node:
         self.cascade_left = 0
         self.last_of_cascade = False
         self.cascade_id = set()
-
-
-    # def set_response(self, seed):
-    #     np.random.seed(seed)
-    #     return np.random.random()
     
     def make_sampler(self):
         self.sampler_state = True

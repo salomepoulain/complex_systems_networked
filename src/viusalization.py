@@ -119,7 +119,7 @@ def animate_network(network):
     ani.save("animations/network_animation.gif", fps=20, writer="pillow")
     plt.show()
 
-def plot_network(network, cluster):
+def plot_network_clusters(network, cluster):
     fig, ax = plt.subplots(figsize=(6, 6))
     graph, colors = initial_graph(network, cluster)
     seedje = 33
@@ -181,42 +181,7 @@ def plot_cascade_dist(data):
     plt.tight_layout()
     plt.show()
 
-
-def plot_cascade_dist(data):
-    # Prepare the figure
-    fig, ax = plt.subplots(figsize=(7, 4))
-    
-    # Plot each cascade size with vertical stacking
-    for size, values in data.items():
-        if size==1:
-            continue
-        y_offsets = [y * 0.5 for y in range(len(values))]
-        for (index, polarization), y in zip(values, y_offsets):
-            color = plt.cm.coolwarm((polarization + 1) / 2)  # Map polarization (-1 to 1) to colormap
-            ax.scatter(size, y, color=color, s=30)  # Plot the dot
-            # ax.annotate(str(index), (size, y), textcoords="offset points", xytext=(5, 5), fontsize=8)
-    
-    # Add labels and title
-    ax.set_title("Cascade Sizes and Polarizations")
-    ax.set_xlabel("Cascade Size")
-    ax.set_ylabel("Stacked Occurrences")
-    # ax.set_xscale("log")
-    # ax.set_yscale("log")
-    ax.set_xlim(1)
-    ax.set_ylim(1)
-    ax.grid(True)
-
-    # Add a colorbar
-    sm = plt.cm.ScalarMappable(cmap="coolwarm", norm=plt.Normalize(vmin=-1, vmax=1))
-    sm.set_array([])
-    cbar = plt.colorbar(sm, ax=ax)
-    cbar.set_label("Polarization (-1: Red, 1: Blue)")
-
-    # Show the plot
-    plt.tight_layout()
-    plt.show()
-
-def plot_cascade_dist_average(data, largest_size=120):
+def plot_cascade_dist_average(data, stadium, largest_size=120, num_exp=1, save=False, correlation=0):
     """
     Plot a distribution of cascade sizes with bar heights representing the number of occurrences
     and bar colors representing the average polarization.
@@ -238,29 +203,35 @@ def plot_cascade_dist_average(data, largest_size=120):
         sizes.append(size)  # The cascade size
         counts.append(len(values))  # Number of occurrences (bar height)
         avg_polarizations.append(np.mean(np.abs(values)))
-    
+    counts=np.array(counts, dtype=np.float64)
+    counts/=num_exp
     
     # Normalize polarization for coloring
     colors = [green_to_red(p) for p in avg_polarizations]
 
     # Create the bar plot
-    fig, ax = plt.subplots(figsize=(7, 3.5))
+    fig, ax = plt.subplots(figsize=(6.5, 3.5))
     bars = ax.bar(sizes, counts, color=colors, edgecolor="black", linewidth=0.5)
 
     # Add a colorbar for polarization
     sm = plt.cm.ScalarMappable(cmap=green_to_red, norm=plt.Normalize(vmin=0, vmax=1))
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax)
-    cbar.set_label("0:non polarized - 1:fully polarized")
+    cbar.set_label("0:non polarized-1:fully polarized")
     
     ax.set_yscale("log")
     # Add labels and title
-    ax.set_title("Cascade Size Distribution with Polarization")
+    ax.set_title(f"Cascade Size Distribution with Polarization ({num_exp} runs)")
     ax.set_xlabel("Cascade Size")
     ax.set_ylabel("Number of Occurrences")
     ax.set_xlim(0, largest_size+1) 
     ax.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.3)
 
-    # Show the plot
+    
     plt.tight_layout()
+
+    # save the plot
+    if save:
+        plt.savefig(f"plots/cascade_distribution_{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
+
     plt.show()

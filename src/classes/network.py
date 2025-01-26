@@ -21,6 +21,10 @@ class Network:
         self.connections = set()
         self.all_nodes = self.nodesL + self.nodesR
         self.initialize_random_network()
+    
+    def clean_network(self):
+        self.alterations = 0
+        self.activated = set()
 
     def initialize_random_network(self):
         """
@@ -31,7 +35,7 @@ class Network:
 
         # np.random.seed(self.seed)
         if self.k is not None:
-            print(f"A Wattz-Strogatz network is initialized with beta value {self.p} and regular network degree {self.k}")
+            print(f"A Wattz-Strogatz network is initialized with beta value {self.p} and regular network degree {self.k}, and correlation {self.correlation}")
             # If degree `k` is provided, ensure each node has exactly `k` connections.
             # This creates a regular network first, and then we adjust using `p`.
             for node1 in self.all_nodes:
@@ -51,7 +55,7 @@ class Network:
                         if self.rng.random() < self.p:
                             self.add_connection(node1, node2)
         else:
-            print(f'A random network is initialized with p: {self.p} and {len(self.all_nodes)} nodes')
+            print(f'A random network is initialized with p: {self.p} and {len(self.all_nodes)} nodes and correlation {self.correlation}')
             # If no degree `k` is provided, fall back to the Erdős–Rényi model
             for node1 in self.all_nodes:
                 for node2 in self.all_nodes:
