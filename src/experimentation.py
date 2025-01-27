@@ -54,11 +54,13 @@ def parallel_network_generation(whichrun, num_nodes, seed, corr, iterations, upd
         for key, value in network_properties.items():
             file.write(f"{key}: {value}\n")
 
-
 def generate_networks(correlations, initial_seeds, num_nodes, iterations, how_many, update_fraction, starting_distribution, p):
+    print("starting parallel generation of networks")
+    print("-----------------------------------------")
     runs = np.arange(how_many)  # Create a range for the runs
     num_threads = min(how_many, 10)
     for j,corr in enumerate(correlations): 
+        print(f"starting correlation {corr}")
         seed = int(initial_seeds[j])
         num_threads = 10
         
