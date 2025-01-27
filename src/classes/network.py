@@ -1,4 +1,3 @@
-import random
 import numpy as np
 from src.classes.node import Node
 from scipy import stats
@@ -11,30 +10,25 @@ class Network:
         self.p = p
         self.k = k
         self.m = m
-        self.seed = seed
+        # self.seed = seed
         self.correlation = correlation 
         self.mean = mean
         self.activated = set()
+
+        self.rng = np.random.default_rng(seed)
+
         self.alterations = 0
         self.update_fraction = update_fraction
 
-        self.nodesL = {Node(i, "L", seed=i*3) for i in range(int(num_nodes * starting_distribution))}
-        self.nodesR = {Node(i + len(self.nodesL), "R", seed=i+num_nodes*2) for i in range(int(num_nodes * (1 - starting_distribution)))}
+        self.nodesL = [Node(i, "L", rng=self.rng) for i in range(int(num_nodes * starting_distribution))]
+        self.nodesR = [Node(i + len(self.nodesL), "R", rng=self.rng) for i in range(int(num_nodes * (1 - starting_distribution)))]
         self.connections = set()
-        self.all_nodes = self.nodesL.union(self.nodesR)
-
-        # for visuals
-        self.iterations = 0
-        self.removed_edge = []
-        self.new_edge = []
-        
-        if network == 'scale_free':
-            self.initialize_scale_free_network()
-        elif network == 'random':
-            self.initialize_random_network()
-        else:
-            assert network is None, "Invalid network type provided. Use 'scale_free' or 'random'."
-        
+        self.all_nodes = self.nodesL + self.nodesR
+        self.initialize_random_network()
+    
+    def clean_network(self):
+        self.alterations = 0
+        self.activated = set()
 
     def initialize_random_network(self):
         """
@@ -43,18 +37,18 @@ class Network:
         If `p` is high, it will resemble an Erdős–Rényi random network.
         """
 
-        np.random.seed(self.seed)
-        if self.seed != None:
-            self.seed+=1
+        # np.random.seed(self.seed)
         if self.k is not None:
-            print(f"A Wattz-Strogatz network is initialized with beta value {self.p} and regular network degree {self.k}")
+            print(f"A Wattz-Strogatz network is initialized with beta value {self.p} and regular network degree {self.k}, and correlation {self.correlation}")
             # If degree `k` is provided, ensure each node has exactly `k` connections.
             # This creates a regular network first, and then we adjust using `p`.
             for node1 in self.all_nodes:
+                available_nodes = self.all_nodes.copy()
                 # Create k regular connections for each node
-                available_nodes = list(self.all_nodes - {node1})
+                # available_nodes = list(self.all_nodes - {node1})
+                available_nodes.remove(node1)
                 for _ in range(self.k):
-                    node2 = np.random.choice(available_nodes)
+                    node2 = self.rng.choice(available_nodes)
                     self.add_connection(node1, node2)
                     available_nodes.remove(node2)
 
@@ -62,15 +56,15 @@ class Network:
             for node1 in self.all_nodes:
                 for node2 in self.all_nodes:
                     if node1 != node2 and (node2 not in node1.node_connections):
-                        if np.random.random() < self.p:
+                        if self.rng.random() < self.p:
                             self.add_connection(node1, node2)
         else:
-            print(f'A random network is initialized with p: {self.p} and {len(self.all_nodes)} nodes')
+            print(f'A random network is initialized with p: {self.p} and {len(self.all_nodes)} nodes and correlation {self.correlation}')
             # If no degree `k` is provided, fall back to the Erdős–Rényi model
             for node1 in self.all_nodes:
                 for node2 in self.all_nodes:
                     if node1 != node2 and (node2 not in node1.node_connections):
-                        if np.random.random() < self.p:
+                        if self.rng.random() < self.p:
                             self.add_connection(node1, node2)
 
     def initialize_scale_free_network(self):
@@ -174,12 +168,12 @@ class Network:
         :return: Normalized signifiance (sL, sR) for the left and right media hubs.
         """
         covar = [[1, self.correlation ], [self.correlation, 1]]
-        np.random.seed(self.seed)
-        stims = np.random.multivariate_normal(mean = [self.mean, self.mean], cov = covar, size = 1)
+        # np.random.seed(self.seed)
+        stims = self.rng.multivariate_normal(mean = [self.mean, self.mean], cov = covar, size = 1)
         stims_perc = stats.norm.cdf(stims, loc = 0, scale = 1) 
         return stims_perc[0][0], stims_perc[0][1]
 
-    def run_cascade(self, sL, sR, all_samplers):
+    def run_cascade(self, sL, sR, all_samplers, analyze=False):
         """
         Continue responding to the news intensities until a steady state is reached (no changes in activation state).
         This is the cascade event.
@@ -194,7 +188,7 @@ class Network:
         # inject news for left oriented nodes
         for nodeL in all_left:
             nodeL.reset_node()
-            active_state, to_consider_L = nodeL.respond(sL)
+            active_state, to_consider_L = nodeL.respond(sL, analyze=analyze)
             if active_state:
                 union_to_consider.update(to_consider_L)
                 steady_state_reached = False
@@ -203,7 +197,7 @@ class Network:
         # inject news for right oriented nodes
         for nodeR in all_right:
             nodeR.reset_node()
-            active_state, to_consider_R = nodeR.respond(sR)
+            active_state, to_consider_R = nodeR.respond(sR, analyze=analyze)
             if active_state:
                 union_to_consider.update(to_consider_R)
                 steady_state_reached = False
@@ -215,15 +209,68 @@ class Network:
 
             for individual in union_to_consider:
                 # omit redundant checks by returning only the neighbors of newly activated nodes. 
-                active_state, to_consider = individual.respond()
+                active_state, to_consider = individual.respond(analyze=analyze)
+
                 if active_state:
                     steady_state_reached=False
                     self.activated.add(individual)
                     new_to_consider.update(to_consider)
             union_to_consider = new_to_consider
 
-    def analyze_network(self, sL, sR):
-        pass
+    def analyze_network(self):
+
+        self.alterations = 0
+        # if self.seed != None:
+            # self.seed+=1
+        sL, sR = self.generate_news_significance()
+
+        all_samplers = self.pick_samplers()
+
+        self.run_cascade(sL, sR, all_samplers, True)
+        participating = [n.cascade_id for n in self.all_nodes if n.last_of_cascade]
+
+        if len(participating) == 0: 
+            # print("no cascades in this round")
+            return [], [], []
+
+        # merge sets of nodes that contain 1 or more of the same node -> cascade is overlapping and thus merged
+        merged = []
+        for current_set in participating:
+            # check for all disjoint lists (sets are converted to lists)
+            overlapping_sets = [merged_set for merged_set in merged if not current_set.isdisjoint(merged_set)] 
+            
+            if overlapping_sets:
+                # Merge all overlapping sets into one
+                merged_set = set(current_set)  
+                for overlap in overlapping_sets:
+                    merged_set.update(overlap) 
+                    merged.remove(overlap)     
+                merged.append(merged_set)      
+            else:
+                # If no overlaps, add as a new set
+                merged.append(current_set)
+        
+        number_nodes_within = sum(len(setje) for setje in merged)
+
+        # overlapping cascades are merged, so no node can occur more than once in merged
+        assert number_nodes_within == len(self.activated), f"All the nodes that are activated should be part of a cascade and vice versa"
+                
+
+        size_distiribution_cascades= [len(setje) for setje in merged]
+        fractions_polarized = [
+            sum(i for _, i in setje) / len(setje) if len(setje) > 0 else 0  
+            for setje in merged
+        ]
+
+        for node in self.activated:
+            node.reset_activation_state()
+            node.reset_node()
+            
+        self.activated = set()
+    	
+        return merged, size_distiribution_cascades, fractions_polarized
+
+
 
     def network_adjustment(self, sL, sR):
         """
@@ -232,19 +279,21 @@ class Network:
         self.new_edge = []
         self.removed_edge = []
         # Select an active node involved in the cascade
-        np.random.seed(self.seed)
+        # np.random.seed(self.seed)
 
         # can maybe be done more efficiently if done dynamically
         # active_nodes = {n for n in self.all_nodes if n.activation_state}  # Set of active nodes
 
         if len(self.activated) >0:
-            active_node = np.random.choice(list(self.activated))
+            # Select an active node involved in the cascade
+            # sort for reproducability purposes
+            active_node = self.rng.choice(list(sorted(self.activated, key=lambda x: x.ID)))
 
             if ((active_node.identity == 'L' and sL <= active_node.response_threshold) or
                 (active_node.identity == 'R' and sR <= active_node.response_threshold)):
                 
                 # Break a tie with an active neighbor (use set for efficiency)
-                active_neighbors = {n for n in active_node.node_connections if n.activation_state}
+                active_neighbors = [n for n in active_node.node_connections if n.activation_state]
                 number_of_connections = len(self.connections)
 
                 # If active neighbors exist, remove an edge
@@ -252,41 +301,32 @@ class Network:
                     
                     self.alterations+=1
                     
-                    # remove edge
-                    break_node = np.random.choice(list(active_neighbors))
+                    # remove edge, sort active neighbors for reproducability
+                    break_node = self.rng.choice(sorted(active_neighbors, key=lambda x: x.ID))
                     self.remove_connection(active_node, break_node)
                     self.removed_edge.extend([active_node.ID, break_node.ID])
                     
                     # only if an edge is removed, add an extra adge. 
-                    node1 = np.random.choice(list(self.all_nodes))
+                    # node1 = self.rng.choice(list(self.all_nodes))
+                    node1 = self.rng.choice(self.all_nodes)
                     cant_be_picked = node1.node_connections.copy()
                     cant_be_picked.add(node1)
-                    node2 = np.random.choice(list(self.all_nodes - cant_be_picked))
-                    self.new_edge.extend([node1.ID, node2.ID])
+                    # node2 = self.rng.choice(List(self.all_nodes - cant_be_picked))
+
+                    filtered_nodes = [node for node in self.all_nodes if node not in cant_be_picked]
+                    node2 = self.rng.choice(filtered_nodes)
 
                     # add edge
                     self.add_connection(node1, node2)
                 
                 assert number_of_connections == len(self.connections), "invalid operation took place, new number of edges is different than old"
 
-
-    def update_round(self):
-        """
-        Perform a single update round.
-        """
-        self.iterations += 1
-
-        if self.seed != None:
-            self.seed+=1
-        sL, sR = self.generate_news_significance()
-
-        np.random.seed(self.seed)
-        ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
-        # nog niet duidelijk of deze fractie bij beiden identities even groot is, of wat de fractie grootte moet zijn
-        ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
-        # Select a fraction of nodes to become sampled
+    def pick_samplers(self):
+        
+        # np.random.seed(self.seed)
         all_samplers_L, all_samplers_R = set(), set()
-        for node in np.random.choice(list(self.all_nodes), int(len(self.all_nodes) * self.update_fraction), replace=False):
+        # for node in self.rng.choice(list(self.all_nodes), int(len(self.all_nodes) * self.update_fraction), replace=False):
+        for node in self.rng.choice(self.all_nodes, int(len(self.all_nodes) * self.update_fraction), replace=False):
             if node.identity == 'L':
                 all_samplers_L.add(node)
             elif node.identity == 'R':
@@ -296,9 +336,24 @@ class Network:
             assert node.sampler_state == False, "at this point all samplers states should be false"
             assert node.activation_state == False, "at this point all nodes should be inactive"
             node.sampler_state = True
+        return (all_samplers_L, all_samplers_R)
+
+
+    def update_round(self):
+        """
+        Perform a single update round.
+        """
+        self.alterations = 0
+        self.iterations +=1
+        # if self.seed != None:
+        #     self.seed+=1
+        sL, sR = self.generate_news_significance()
+
+        # np.random.seed(self.seed)
+        allsamplers = self.pick_samplers()
 
         # Respond to the news intensities, continue this untill steady state is reached
-        self.run_cascade(sL, sR, (all_samplers_L, all_samplers_R))
+        self.run_cascade(sL, sR, allsamplers)
 
         # Network adjustment
         self.network_adjustment(sL, sR)
