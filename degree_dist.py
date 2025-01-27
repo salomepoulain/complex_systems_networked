@@ -1,17 +1,12 @@
 from src.classes.network import Network
 import numpy as np
 import matplotlib.pyplot as plt
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
+import time
+import os
 
-# Example parameters
-num_nodes = 100
-correlation = -1
-update_fraction = 0.1
-starting_distribution = 0.5
-p = 0.1
-num_runs = 10
-steady_state_iter = 1e4
-
-def average_degree_dist(num_runs, steady_state_iter, num_nodes, correlation, update_fraction, starting_distribution, p=0.1, k=None):
+def average_degree_dist(num_runs, steady_state_iter, num_nodes, correlation, update_fraction, starting_distribution, p):
     """Calculates averaged degree distribution for multiple networks.
 
     Args:
@@ -22,7 +17,6 @@ def average_degree_dist(num_runs, steady_state_iter, num_nodes, correlation, upd
         update_fraction (float): fraction of nodes that sample directly from the news
         starting_distribution (float): fraction of nodes with identity L (or R)
         p (float, optional): probability to create edge. Defaults to 0.1.
-        k (int, optional): number of connections for each node. Defaults to None.
 
     Returns:
         Arrays containing the unique degrees and the average frequency.
@@ -61,8 +55,21 @@ def average_degree_dist(num_runs, steady_state_iter, num_nodes, correlation, upd
 
     return degrees, avg_freqs
 
+def plot_data(data, correlations):
+    """Plot the simulated data."""
+    colors = ['red', 'blue', 'green']
+    plt.figure(figsize=(7,5), dpi=200)
+    for i in range(len(data)):
+        plt.scatter(data[i, 0], data[i, 1], color=colors[i], label=fr'$\gamma = {{{correlations[i]}}}$')
+        plt.fill_between(data[i, 0], data[i, 1] - data[i, 2], data[i, 1] + data[i, 2], color=colors[i], alpha=0.5)
 
-def degree_and_thrshld_correlation(steady_state_iter, num_nodes, correlation, update_fraction, starting_distribution, p=0.1, k=None):
+    plt.xlabel('Number of update rounds', fontsize=14)
+    plt.ylabel('Degree-Threshold Correlation', fontsize=14)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+def degree_and_thrshld_correlation(network_type, steady_state_iter, num_nodes, correlation, update_fraction, starting_distribution, p, m, dummy=None):
     """Calculates the correlation coefficient between node degree and node threshold.
 
     Args:
@@ -71,13 +78,14 @@ def degree_and_thrshld_correlation(steady_state_iter, num_nodes, correlation, up
         correlation (float): correlation between the news sources
         update_fraction (float): fraction of nodes that sample directly from the news
         starting_distribution (float): fraction of nodes with identity L (or R)
-        p (float, optional): probability to create edge. Defaults to 0.1.
-        k (int, optional): number of connections for each node. Defaults to None.
+        p (float): probability to create edge.
+        m (int): number of connections for each node in a scale-free network.
 
     Returns:
         Tuple of an array containing the degree and threshold, and the correlation coefficient.
     """    
-    network = Network(num_nodes, 0, correlation, starting_distribution, update_fraction, p)
+    network = Network(network_type, num_nodes, mean=0, correlation=correlation, starting_distribution=starting_distribution, 
+                      update_fraction=update_fraction, p=p, m=m)
 
     for i in range(int(steady_state_iter)):
         network.update_round()
@@ -91,7 +99,7 @@ def degree_and_thrshld_correlation(steady_state_iter, num_nodes, correlation, up
     
     return degree_thrsh_values, corr_coef
 
-def correlation_vs_updateround(num_runs, num_plot_points, max_rounds, num_nodes, correlation, update_fraction, starting_distribution, p):
+def correlation_vs_updateround(num_threads, num_runs, num_plot_points, max_rounds, network_type, num_nodes, correlation, update_fraction, starting_distribution, p, m):
     """Calculates the correlation between degree and threshold for different amounts of update rounds.
 
     Args:
@@ -102,7 +110,9 @@ def correlation_vs_updateround(num_runs, num_plot_points, max_rounds, num_nodes,
         correlation (float): correlation between the news sources
         update_fraction (float): fraction of nodes that sample directly from the news
         starting_distribution (float): fraction of nodes with identity L (or R)
-        p (float, optional): probability to create edge. Defaults to 0.1.
+        p (float): probability to create edge.
+        m (int): number of connections for each node in a scale-free network.
+
 
     Returns:
         arrays for mean correlations, standard deviations, and number of update rounds 
@@ -112,10 +122,13 @@ def correlation_vs_updateround(num_runs, num_plot_points, max_rounds, num_nodes,
     all_std_corr = np.zeros(num_plot_points)
     for i, num_update in enumerate(all_update_rounds):
 
-        corr_per_round_number = np.zeros(num_runs)
-        for j in range(num_runs):
-            _, corr_coef = degree_and_thrshld_correlation(int(num_update), num_nodes, correlation, update_fraction, starting_distribution, p)
-            corr_per_round_number[j] = corr_coef
+        worker_function = partial(degree_and_thrshld_correlation, network_type, int(num_update), num_nodes, correlation, 
+                                  update_fraction, starting_distribution, p, m)
+
+        with ProcessPoolExecutor(max_workers=num_threads) as executor:
+            results = list(executor.map(worker_function, range(num_runs)))
+        
+        corr_per_round_number = np.array([result[1] for result in results])
 
         mean_corr = np.mean(corr_per_round_number)
         std_corr = 1.96 * np.std(corr_per_round_number) / np.sqrt(num_runs)
@@ -125,37 +138,46 @@ def correlation_vs_updateround(num_runs, num_plot_points, max_rounds, num_nodes,
 
     return all_update_rounds, all_mean_corr, all_std_corr
 
-update_rounds, mean_corr1, std_corr1 = correlation_vs_updateround(num_runs=20, num_plot_points=20, max_rounds=10000, num_nodes=100, 
-                                                                correlation=-1, update_fraction=0.1, starting_distribution=0.5, p=0.1)
-update_rounds, mean_corr2, std_corr2 = correlation_vs_updateround(num_runs=20, num_plot_points=20, max_rounds=10000, num_nodes=100, 
-                                                                correlation=0, update_fraction=0.1, starting_distribution=0.5, p=0.1)
-update_rounds, mean_corr3, std_corr3 = correlation_vs_updateround(num_runs=20, num_plot_points=20, max_rounds=10000, num_nodes=100, 
-                                                                correlation=1, update_fraction=0.1, starting_distribution=0.5, p=0.1)
-plt.figure(figsize=(10,7))
-plt.scatter(update_rounds, mean_corr1, color='red', label=r'$\gamma = -1$')
-plt.fill_between(update_rounds, mean_corr1 - std_corr1, mean_corr1 + std_corr1, color='red', alpha=0.5)
-plt.scatter(update_rounds, mean_corr2, color='blue', label=r'$\gamma = 0$')
-plt.fill_between(update_rounds, mean_corr2 - std_corr2, mean_corr2 + std_corr2, color='blue', alpha=0.5)
-plt.scatter(update_rounds, mean_corr3, color='green', label=r'$\gamma = 1$')
-plt.fill_between(update_rounds, mean_corr3 - std_corr3, mean_corr3 + std_corr3, color='green', alpha=0.5)
-plt.xlabel('Number of update rounds', fontsize=14)
-plt.ylabel('Correlation', fontsize=14)
-plt.legend()
-plt.show()
+def run_degree_corr_experiment(num_threads, num_runs, num_plot_points, max_rounds, network_type, num_nodes, correlations, update_fraction, starting_distribution, p, m, save_results=False):
+    """Run an experiment for the correlation between node degree and node threshold as a function of the number of update rounds. Multiple values of gamma can be used.
+
+    Args:
+        num_threads (int): number of threads used for parallel execution
+        num_runs (int): number of repetitions
+        num_plot_points (int): number of points to plot
+        max_rounds (int): maximum number of update rounds
+        network_type (str): type of network
+        num_nodes (int): number of nodes in the network
+        correlations (list): list of gamma values (correlation between news sources)
+        update_fraction (float): fraction of nodes that directly sample from the news
+        starting_distribution (float): fraction of nodes with identity L (or R)
+        p (float): probability to create an edge in a random network
+        m (int): number of connections for each node in a scale-free network.
+        save_results (bool): option to save results in csv
+
+    """    
+    assert num_threads <= os.cpu_count(), 'Num threads must be less or equal than your CPU count.'
+    start = time.time()
+
+    data_matrix = np.zeros((len(correlations), 3, num_plot_points))
+    for i, corr in enumerate(correlations):
+        update_rounds, mean_corr, std_corr = correlation_vs_updateround(num_threads, num_runs, num_plot_points, max_rounds, network_type, num_nodes, 
+                                                                        corr, update_fraction, starting_distribution, p, m)
+        data_matrix[i, 0, :] = update_rounds
+        data_matrix[i, 1, :] = mean_corr
+        data_matrix[i, 2, :] = std_corr
+
+    if save_results:
+        np.save(f"degree_thresh_corr_{network_type}.npy", data_matrix)
+
+    stop = time.time()
+    print(f"Duration: {(stop-start)/60} min")
 
 
+    plot_data(data_matrix, correlations)
 
-# degree_thrsh_values, corr_coef = degree_and_thrshld_correlation(steady_state_iter, num_nodes, correlation, update_fraction, starting_distribution, p)
-# plt.figure(figsize=(7,5))
-# plt.title(f'Correlation between degree and threshold: {round(corr_coef, 3)}')
-# plt.scatter(degree_thrsh_values[0], degree_thrsh_values[1], color='blue')
-# plt.xlabel(r'Node Degree $k$', fontsize=14)
-# plt.ylabel(r'Node Threshold $\theta$', fontsize=14)
-# plt.show()
 
-# degrees, freqs = average_degree_dist(num_runs, steady_state_iter, num_nodes, correlation, update_fraction, starting_distribution, p)
-# plt.bar(degrees, freqs, color='skyblue', edgecolor='black')
-# plt.xlabel('Degree', fontsize=14)
-# plt.ylabel('Frequency', fontsize=14)
-# plt.xticks(degrees) 
-# plt.show()
+if __name__ == '__main__':
+    run_degree_corr_experiment(num_threads=14, num_runs=56, num_plot_points=20, max_rounds=10000, network_type='random', num_nodes=100, 
+                                                                    correlations=[-1, 0, 1], update_fraction=0.1, starting_distribution=0.5, p=0.05, m=2,
+                                                                    save_results=True)
