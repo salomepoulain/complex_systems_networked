@@ -10,6 +10,7 @@ class Network:
         self.p = p
         self.k = k
         self.m = m
+        self.iterations = 0
         self.correlation = correlation 
         self.mean = mean
         self.activated = set()
