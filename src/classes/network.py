@@ -4,7 +4,7 @@ from src.classes.node import Node
 from scipy import stats
 import numpy as np
 import matplotlib.pyplot as plt
-from powerlaw import Fit
+# from powerlaw import Fit
 
 class Network:
     def __init__(self, network, num_nodes, mean=0, correlation=-1, starting_distribution=0.5, update_fraction=0.2, seed=None, p=0.1, k=None, m=2):
@@ -22,6 +22,11 @@ class Network:
         self.nodesR = {Node(i + len(self.nodesL), "R", seed=i+num_nodes*2) for i in range(int(num_nodes * (1 - starting_distribution)))}
         self.connections = set()
         self.all_nodes = self.nodesL.union(self.nodesR)
+
+        # for visuals
+        self.iterations = 0
+        self.removed_edge = []
+        self.new_edge = []
         
         if network == 'scale_free':
             self.initialize_scale_free_network()
@@ -224,6 +229,8 @@ class Network:
         """
         Adjust the network by breaking ties and adding new connections.
         """
+        self.new_edge = []
+        self.removed_edge = []
         # Select an active node involved in the cascade
         np.random.seed(self.seed)
 
@@ -243,17 +250,19 @@ class Network:
                 # If active neighbors exist, remove an edge
                 if len(active_neighbors) > 0:
                     
-                    self.alterations=1
+                    self.alterations+=1
                     
                     # remove edge
                     break_node = np.random.choice(list(active_neighbors))
                     self.remove_connection(active_node, break_node)
+                    self.removed_edge.extend([active_node.ID, break_node.ID])
                     
                     # only if an edge is removed, add an extra adge. 
                     node1 = np.random.choice(list(self.all_nodes))
                     cant_be_picked = node1.node_connections.copy()
                     cant_be_picked.add(node1)
                     node2 = np.random.choice(list(self.all_nodes - cant_be_picked))
+                    self.new_edge.extend([node1.ID, node2.ID])
 
                     # add edge
                     self.add_connection(node1, node2)
@@ -265,8 +274,8 @@ class Network:
         """
         Perform a single update round.
         """
-        # print(self.alterations)
-        self.alterations = 0
+        self.iterations += 1
+
         if self.seed != None:
             self.seed+=1
         sL, sR = self.generate_news_significance()
@@ -300,3 +309,5 @@ class Network:
             
         self.activated = set()
 
+    def give_alterations(self):
+        return self.alterations
