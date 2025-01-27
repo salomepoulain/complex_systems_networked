@@ -40,7 +40,7 @@ def self_sort(frame, network, graph, colors, pos, pos_target, ax, seedje):
     """
     print(f"Processing frame {frame}")
     framestep = 200
-    limit = 50000
+    limit = 100000
     alterations_per_frame = 1
     frames_per_alteration = 15
     ax.clear()
@@ -103,8 +103,8 @@ def self_sort(frame, network, graph, colors, pos, pos_target, ax, seedje):
 
     # add title
     ax.text(
-    0.98, 0.99, 
-    f"ITERATIONS  {network.iterations}", 
+    0.94, 1, 
+    f"ITERATIONS   {network.iterations}", 
     fontsize=16, 
     color="gray", 
     transform=ax.transAxes, 
@@ -114,7 +114,7 @@ def self_sort(frame, network, graph, colors, pos, pos_target, ax, seedje):
     )
 
     ax.text(
-    0.98, 0.96, 
+    0.94, 0.96, 
     f"ALTERATIONS  {network.give_alterations()}", 
     fontsize=16, 
     color="gray", 
@@ -125,17 +125,17 @@ def self_sort(frame, network, graph, colors, pos, pos_target, ax, seedje):
     )
 
     # red circle for right average
-    ax.add_patch(Circle((1, 0.93), 0.02, color="red", transform=ax.transAxes))
+    ax.add_patch(Circle((0.96, 0.91), 0.02, color="#FF6666", transform=ax.transAxes))
     text_right = ax.text(
-        0.98, 0.8, f"Right Avg: {average_right:.2f}",
-        fontsize=16, color="black", transform=ax.transAxes, ha="left", va="center"
+        0.99, 0.91, f"           {average_right:.2f}",
+        fontsize=16, color="gray", transform=ax.transAxes, ha="left", va="center", fontfamily="Arial"
     )
 
     # blue circle for left average
-    ax.add_patch(Circle((1, 0.9), 0.02, color="blue", transform=ax.transAxes))
+    ax.add_patch(Circle((0.96, 0.85), 0.02, color="lightblue", transform=ax.transAxes))
     text_left = ax.text(
-        0.98, 0.7, f"Left Avg: {average_left:.2f}",
-        fontsize=16, color="black", transform=ax.transAxes, ha="left", va="center"
+        0.99, 0.85, f"           {average_left:.2f}",
+        fontsize=16, color="gray", transform=ax.transAxes, ha="left", va="center", fontfamily="Arial"
     )
 
     # Return all drawn artists
@@ -168,7 +168,7 @@ def plot_network(network):
     ani = FuncAnimation(
         fig, 
         self_sort, 
-        frames=200, 
+        frames=1200, 
         interval=200,  
         fargs=(network, graph, colors, pos, pos_target, ax, seedje),
         blit = True

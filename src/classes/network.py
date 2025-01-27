@@ -315,7 +315,7 @@ class Network:
 
                     filtered_nodes = [node for node in self.all_nodes if node not in cant_be_picked]
                     node2 = self.rng.choice(filtered_nodes)
-                    self.new_edge.extend([node1, node2])
+                    self.new_edge.extend([node1.ID, node2.ID])
 
                     # add edge
                     self.add_connection(node1, node2)
@@ -343,7 +343,6 @@ class Network:
         """
         Perform a single update round.
         """
-        self.alterations = 0
         self.iterations +=1
 
         sL, sR = self.generate_news_significance()
