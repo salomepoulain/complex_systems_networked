@@ -22,6 +22,8 @@ def initial_graph(network, clusters=[]):
 
     return graph, colors
 
+from matplotlib.patches import Rectangle
+
 def self_sort(frame, network, graph, colors, pos, pos_target, ax, seedje):
     """
     Update the graph for each animation frame.
@@ -56,53 +58,88 @@ def self_sort(frame, network, graph, colors, pos, pos_target, ax, seedje):
         # stop animation if desired iteration limit is reached
         if network.iterations >= limit:
             self_sort.ani.event_source.stop()
-            print("iteration limit reached")
+            print("Iteration limit reached")
             return []
-        
+
     self_sort.frame_counter = (self_sort.frame_counter + 1) % frames_per_alteration
-
-    # move past zero or 20s
-    # if network.give_alterations() % alterations_per_frame == 0: 
-        # while network.give_alterations() % alterations_per_frame == 0: 
-            # network.update_round()
-
-    # while network.give_alterations() % alterations_per_frame != 0 and network.iterations <=limit:
-        # network.update_round()
 
     # clear and rebuild edges in the graph
     graph.clear_edges()
     for connection in network.connections:
         graph.add_edge(connection[0].ID, connection[1].ID)
 
+    # re-add the removed edge for visualization
     graph.add_edge(network.removed_edge[0], network.removed_edge[1])
-    # graph.add_edge(network.new_edge[0], network.new_edge[1])
 
-    # Calculate averages for right and left nodes
+    # calculate averages for right and left nodes
     average_right, average_left = calculate_fraction(network)
 
-
-    print(f"There have now been {network.give_alterations()} alterations made in {network.iterations} iterations")
-
+    # define kawai layout <:-)
     pos_target.update(nx.kamada_kawai_layout(graph, scale=0.8))
-    
-    # Smoothly interpolate positions between frames
+
+    # smoothly interpolate positions between frames
     alpha = (frame % framestep) / 1000
 
+    # 
     for node in pos:
-        pos[node] = pos[node] * (1 - alpha) + pos_target[node] * alpha 
-    
-    nx.draw(
-        graph, 
-        pos,
-        ax=ax,
-        with_labels=False, 
-        node_color=colors, 
-        node_size=20, 
-        # font_size=12, 
-        edge_color="grey", 
-        width = 0.4
+        pos[node] = pos[node] * (1 - alpha) + pos_target[node] * alpha
+
+    # draw nodes
+    nodes = nx.draw_networkx_nodes(graph, pos, ax=ax, node_color=colors, node_size=400)
+
+    # draw regular edges in gray
+    regular_edges = [
+        edge for edge in graph.edges if edge != network.removed_edge and edge != network.new_edge
+    ]
+    nx.draw_networkx_edges(graph, pos, ax=ax, edgelist=regular_edges, edge_color="gray", width=0.5)
+
+    # draw removed edge in red
+    if network.removed_edge in graph.edges:
+        nx.draw_networkx_edges(graph, pos, ax=ax, edgelist=[network.removed_edge], edge_color="red", width=1.5)
+
+    # draw new edge in green
+    if network.new_edge in graph.edges:
+        nx.draw_networkx_edges(graph, pos, ax=ax, edgelist=[network.new_edge], edge_color="green", width=1.5)
+
+    # add title
+    ax.text(
+    0.98, 0.99, 
+    f"ITERATIONS  {network.iterations}", 
+    fontsize=16, 
+    color="gray", 
+    transform=ax.transAxes, 
+    ha="left", 
+    va="center", 
+    fontfamily="Arial"  
     )
-    ax.set_title(f"frame: {frame}", fontsize=14)
+
+    ax.text(
+    0.98, 0.96, 
+    f"ALTERATIONS  {network.give_alterations()}", 
+    fontsize=16, 
+    color="gray", 
+    transform=ax.transAxes, 
+    ha="left", 
+    va="center", 
+    fontfamily="Arial" 
+    )
+
+    # red circle for right average
+    ax.add_patch(Circle((1, 0.93), 0.02, color="red", transform=ax.transAxes))
+    text_right = ax.text(
+        0.98, 0.8, f"Right Avg: {average_right:.2f}",
+        fontsize=16, color="black", transform=ax.transAxes, ha="left", va="center"
+    )
+
+    # blue circle for left average
+    ax.add_patch(Circle((1, 0.9), 0.02, color="blue", transform=ax.transAxes))
+    text_left = ax.text(
+        0.98, 0.7, f"Left Avg: {average_left:.2f}",
+        fontsize=16, color="black", transform=ax.transAxes, ha="left", va="center"
+    )
+
+    # Return all drawn artists
+    return [nodes]
 
 def plot_network(network):
     """
@@ -126,18 +163,18 @@ def plot_network(network):
     for spine in ax.spines.values():  # remove borders
         spine.set_visible(False)
 
-    # fig.tight_layout(pad=5)  # leave space for title
+    # leave space for title
     # Create the animation
     ani = FuncAnimation(
         fig, 
         self_sort, 
-        frames=1000, 
+        frames=200, 
         interval=200,  
         fargs=(network, graph, colors, pos, pos_target, ax, seedje),
         blit = True
     )
     self_sort.ani = ani
-    ani.save("animations/network_animation9.gif", fps=15,  writer="ffmpeg")
+    ani.save("animations/network_animation10.gif", fps=15,  writer="ffmpeg")
     plt.show()
 
 def plot_network_clusters(network, cluster):

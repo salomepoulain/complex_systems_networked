@@ -17,7 +17,12 @@ class Network:
 
         self.rng = np.random.default_rng(seed)
 
+        # for visualization
         self.alterations = 0
+        self.new_edge = []
+        self.removed_edge = []
+
+
         self.update_fraction = update_fraction
 
         self.nodesL = [Node(i, "L", rng=self.rng) for i in range(int(num_nodes * starting_distribution))]
@@ -307,8 +312,10 @@ class Network:
                     cant_be_picked.add(node1)
                     # node2 = self.rng.choice(List(self.all_nodes - cant_be_picked))
 
+
                     filtered_nodes = [node for node in self.all_nodes if node not in cant_be_picked]
                     node2 = self.rng.choice(filtered_nodes)
+                    self.new_edge.extend([node1, node2])
 
                     # add edge
                     self.add_connection(node1, node2)
