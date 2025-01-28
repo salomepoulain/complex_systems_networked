@@ -36,10 +36,12 @@ def get_network_properties(network, seed):
         properties["Degree (k)"] = network.k
 
     # Add properties specific to ScaleFreeNetwork
-    if isinstance(network, ScaleFreeNetwork):
+    elif isinstance(network, ScaleFreeNetwork):
         properties["Initial Edges (m)"] = network.m
         properties["Total Degree"] = network.total_degree
         properties["Degree Distribution"] = network.degree_distribution
+    else:
+        print("Network should be either scale-free or random")
 
     return properties
 
@@ -77,7 +79,7 @@ def parallel_network_generation(whichrun, num_nodes, seed, corr, iterations, upd
         raise ValueError(f"Unsupported network type: {network_type}")
 
     # Prepare the output directory
-    output_folder = f"networks/{network_type}/{corr}" 
+    output_folder = f"networks/{network_type}/dummy/{corr}" 
     output_filename = f"network_{whichrun}.txt"  
     output_path = os.path.join(output_folder, output_filename)
     os.makedirs(output_folder, exist_ok=True)
@@ -133,7 +135,7 @@ def generate_networks(correlations, initial_seeds, num_nodes, iterations, how_ma
     """
     Generates networks in parallel for different correlations and network types.
     """
-    print("Starting parallel generation of networks")
+    print(f"Starting parallel generation of {network_type} networks")
     print("-----------------------------------------")
     runs = np.arange(how_many)  # Create a range for the runs
     num_threads = min(how_many, 10)

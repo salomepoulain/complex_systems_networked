@@ -193,7 +193,7 @@ class _Network:
 
 
 class RandomNetwork(_Network):
-    def __init__(self, p=0.1, k=8, **kwargs):
+    def __init__(self, p=0.1, k=0, **kwargs):
         super().__init__(**kwargs)
         self.p = p
         self.k = k
@@ -207,7 +207,7 @@ class RandomNetwork(_Network):
         If `p` is high, it will resemble an Erdős–Rényi random network.
         """
 
-        if self.k is not None:
+        if self.k >0:
             print(f"A Wattz-Strogatz network is initialized with beta value {self.p} and regular network degree {self.k}, and correlation {self.correlation}")
             # If degree `k` is provided, ensure each node has exactly `k` connections.
             # This creates a regular network first, and then we adjust using `p`.
@@ -246,7 +246,7 @@ class RandomNetwork(_Network):
         # can maybe be done more efficiently if done dynamically
         # active_nodes = {n for n in self.all_nodes if n.activation_state}  # Set of active nodes
 
-        if len(self.activated) >0:
+        if len(self.activated)>0:
             # Select an active node involved in the cascade
             # sort for reproducability purposes
             active_node = self.rng.choice(list(sorted(self.activated, key=lambda x: x.ID)))
@@ -290,7 +290,6 @@ class ScaleFreeNetwork(_Network):
         super().__init__(**kwargs)
         self.m = m
         self.plot = plot
-
         self.degree_distribution = {} 
         self.total_degree = 0
         self.cumulative_degree_list = []
@@ -413,9 +412,12 @@ class ScaleFreeNetwork(_Network):
 
         # Ensure total_degree is initialized properly
         assert self.total_degree > 0, "Seed network must have edges, so total_degree > 0."
+        
+        can_be_picked = self.all_nodes.copy()
+        # node2 = self.rng.choice(List(self.all_nodes - cant_be_picked))
 
         # Step 2: For the remaining nodes, attach each with m edges via scale-free selection
-        remaining_nodes = list(set(self.all_nodes) - set(m0_nodes))
+        remaining_nodes = [node for node in self.all_nodes if node not in m0_nodes]
         for new_node in remaining_nodes:
             assert self.total_degree > 0, "Cannot do preferential attachment if total_degree = 0."
 
@@ -481,13 +483,16 @@ class ScaleFreeNetwork(_Network):
         """
 
         # Ensure there are activated nodes
-        assert len(self.activated) > 0, "No activated nodes available for adjustment."
+        if len(self.activated) == 0:
+            return
 
         # Select a valid active node with more than m connections
-        active_node = self.rng.choice(list(self.activated))
+        active_nodes_list = list(sorted(self.activated, key=lambda x: x.ID))
+        active_node = self.rng.choice(active_nodes_list)
         retries = 100  # Limit retries to avoid infinite loops
+        
         while len(active_node.node_connections) <= self.m and retries > 0:
-            active_node = self.rng.choice(list(self.activated))
+            active_node = self.rng.choice(active_nodes_list)
             retries -= 1
 
         if retries == 0:
@@ -503,11 +508,11 @@ class ScaleFreeNetwork(_Network):
             return  # Skip adjustment if the active node does not meet conditions
 
         # Identify active neighbors
-        active_neighbors = {n for n in active_node.node_connections if n.activation_state}
+        active_neighbors = [n for n in active_node.node_connections if n.activation_state]
         assert len(active_neighbors) > 0, f"Active node {active_node} has no active neighbors to break ties with."
-
+        active_neighbors = sorted(active_neighbors, key=lambda x: x.ID)
         for _ in range(100):  
-            break_node = self.rng.choice(list(active_neighbors))
+            break_node = self.rng.choice(active_neighbors)
             if len(break_node.node_connections) > self.m:
                 self.remove_connection(active_node, break_node)
                 break
@@ -528,7 +533,7 @@ class ScaleFreeNetwork(_Network):
 
         self.add_connection(node1, node2)
 
-        self.alterations = self.alterations + 1
+        self.alterations += 1
 
         # Ensure network integrity after adjustment
         assert all(len(node.node_connections) >= self.m for node in [active_node, break_node, node1, node2]), (
