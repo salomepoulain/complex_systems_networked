@@ -1,4 +1,4 @@
-from src.classes.network import Network
+from src.classes.network import RandomNetwork, ScaleFreeNetwork
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.patches import Circle
