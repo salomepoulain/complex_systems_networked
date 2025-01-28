@@ -2,9 +2,10 @@ from src.classes.network import Network
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.patches import Circle
+from matplotlib.colors import LinearSegmentedColormap
+
 import networkx as nx
 import numpy as np
-from matplotlib.colors import LinearSegmentedColormap
 
 def initial_graph(network, clusters=[]):
     """
@@ -268,7 +269,7 @@ def plot_cascade_dist_average(data, stadium, largest_size=120, num_exp=1, save=F
     colors = [green_to_red(p) for p in avg_polarizations]
 
     # Create the bar plot
-    fig, ax = plt.subplots(figsize=(6.5, 3.5))
+    fig, ax = plt.subplots(figsize=(7, 3.5))
     bars = ax.bar(sizes, counts, color=colors, edgecolor="black", linewidth=0.5)
 
     # Add a colorbar for polarization
@@ -279,7 +280,7 @@ def plot_cascade_dist_average(data, stadium, largest_size=120, num_exp=1, save=F
     
     ax.set_yscale("log")
     # Add labels and title
-    ax.set_title(f"Cascade Size Distribution with Polarization ({num_exp} runs)")
+    ax.set_title(f"Cascade Size Distribution with Polarization (correlation: {correlation})")
     ax.set_xlabel("Cascade Size")
     ax.set_ylabel("Number of Occurrences")
     ax.set_xlim(0, largest_size+1) 
@@ -293,6 +294,78 @@ def plot_cascade_dist_average(data, stadium, largest_size=120, num_exp=1, save=F
         plt.savefig(f"plots/cascade_distribution_{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
 
     plt.show()
+
+
+
+def plot_cascade_animation(cascades, correlations, largest_sizes, num_exp, save=False, stage="before"):
+    """
+    Create an animated visualization of cascade distributions over multiple correlation values.
+
+    Parameters:
+    -----------
+    cascades : dict
+        Dictionary where keys are correlation values and values are the distribution data.
+    correlations : list
+        List of correlation values to iterate over.
+    largest_sizes : dict
+        Dictionary mapping correlation values to the largest cascade size.
+    num_exp : int
+        Number of experiments for normalization.
+    save : bool, optional
+        If True, saves the animation as a .gif file.
+    """
+
+    fig, ax = plt.subplots(figsize=(7, 3.5))
+
+    # **Initialize bar objects**
+    sizes = list(sorted(set(size for data in cascades.values() for size in data.keys())))
+    initial_counts = np.zeros(len(sizes))
+    bars = ax.bar(sizes, initial_counts, color="gray", edgecolor="black", linewidth=0.5)
+
+    # **Create a fixed colorbar (Do NOT recreate it in every frame)**
+    sm = plt.cm.ScalarMappable(cmap=plt.cm.RdYlGn_r, norm=plt.Normalize(vmin=0, vmax=1))
+    sm.set_array([])
+    cbar = plt.colorbar(sm, ax=ax)
+    cbar.set_label("0: non polarized - 1: fully polarized")
+
+    def update(frame):
+        """Update function for animation (updates bars but not colorbar)."""
+        corr = correlations[frame]
+        data = cascades[corr]
+        largest_size = largest_sizes[corr]
+
+        counts = np.zeros(len(sizes))
+        avg_polarizations = np.zeros(len(sizes))
+
+        # Process data for this frame
+        for i, size in enumerate(sizes):
+            if size in data:
+                values = data[size]
+                counts[i] = len(values) / num_exp  # Normalize counts
+                avg_polarizations[i] = np.mean(np.abs(values))  # Average polarization
+
+        # **Update bar heights and colors instead of recreating bars**
+        for bar, count, color_value in zip(bars, counts, avg_polarizations):
+            bar.set_height(count)
+            bar.set_color(plt.cm.RdYlGn_r(color_value))  # Update color
+            bar.set_edgecolor("black")
+
+        ax.set_title(f"Cascade Size Distribution (Correlation: {corr})")
+        ax.set_xlim(0, largest_size)
+        ax.set_yscale("log")
+        if stage == "after":
+            ax.set_ylim(10e-3, 10e4)
+        else: 
+            ax.set_ylim(10e-3, 10e3)
+
+    # Create animation
+    ani = FuncAnimation(fig, update, frames=len(correlations), repeat=False)
+
+    # Save or display animation
+    if save:
+        ani.save(f"plots/cascade_distribution_animation_{stage}.gif", writer="ffmpeg", fps=1.5, dpi=300)
+    else:
+        plt.show()
 
 def print_network(network):
     """

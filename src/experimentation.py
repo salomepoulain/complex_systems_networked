@@ -3,8 +3,11 @@ from src.classes.node import Node
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 import os
+from multiprocessing import Pool
 import numpy as np
+# import dill as pickle
 from collections import defaultdict
+import multiprocessing
 
 def get_network_properties(network, seed):
     # Replace with actual calculations for your network
@@ -67,6 +70,7 @@ def generate_networks(correlations, initial_seeds, num_nodes, iterations, how_ma
         
         worker_function = partial(parallel_network_generation, num_nodes=num_nodes, seed=seed, corr=corr, iterations=iterations, 
                                   update_fraction=update_fraction, starting_distribution=starting_distribution, p=p, m=0, network_type=network_sort)
+        
         with ProcessPoolExecutor(max_workers=num_threads) as executer:
             list(executer.map(worker_function, runs))
 
@@ -131,6 +135,27 @@ def read_and_load_networks(num_runs, num_nodes, update_fraction, average_degree,
 
     return networks
 
+def read_and_load_network_sub(sub_id, corr, num_nodes, update_fraction, average_degree, starting_distribution):
+    p = average_degree/(num_nodes-1) 
+
+    network_properties = read_network_properties(f"networks/random/{corr}/network_{sub_id}.txt")
+    seedje = network_properties["Seed"]
+    search_nodes = defaultdict(Node)
+    before_network = Network("random", num_nodes, mean=0, correlation=corr, update_fraction=update_fraction, starting_distribution=starting_distribution, seed=seedje, p=p)
+    after_network = Network("random", num_nodes, mean=0, correlation=corr, update_fraction=update_fraction, starting_distribution=starting_distribution, seed=seedje, p=p)
+    after_network.connections = set()
+
+    for nodeje in after_network.all_nodes:
+        nodeje.node_connections = set()
+        search_nodes[nodeje.ID] = nodeje
+        
+    for (node1, node2) in network_properties["Connections"]:
+        search_nodes[node1].node_connections.add(search_nodes[node2])
+        after_network.connections.add((search_nodes[node1], search_nodes[node2]))
+
+
+    return (before_network, after_network)
+
 
 def create_data(iters, network):
 
@@ -165,9 +190,11 @@ def create_data(iters, network):
     
 
 
-def parallel_cascade_experiment(corr, experiment_id, all_networks, number_of_iters):
+def parallel_cascade_experiment(par):
     """Worker function for one cascade experiment."""
-    before_network, after_network = all_networks([corr, experiment_id])
+
+    experiment_id, corr, number_of_iters, num_nodes, update_fraction, average_degree, starting_distribution = par
+    before_network, after_network = read_and_load_network_sub(experiment_id, corr, num_nodes, update_fraction, average_degree, starting_distribution)
 
     before_data, average_before_data = create_data(number_of_iters, before_network)
     after_data, average_after_data = create_data(number_of_iters, after_network)
@@ -182,8 +209,14 @@ def parallel_cascade_experiment(corr, experiment_id, all_networks, number_of_ite
     return (before_data, after_data, largest_size), (average_before_data, average_after_data, largest_size_averaged)
 
 
-def multiple_correlations_par(corr, all_networks):
-    number_of_experiments = 10
+PROCESSES = 10
+def multiple_correlations_par(corr, num_exp, num_nodes, update_fraction, average_degree, starting_distribution):
+    '''
+    This function is the parallelized framework for cascade distribution calculation. 
+    Every sub-process reads in a network corresponding with a correlation value and returns a cascade distribution. 
+    All the distributions returned are combined. 
+    '''
+    # datastructures to save data
     number_of_iters = 10000
     collection_of_all_before = defaultdict(list)
     collection_of_all_after = defaultdict(list)
@@ -191,18 +224,20 @@ def multiple_correlations_par(corr, all_networks):
     col_of_all_after_averaged = defaultdict(list)
     largest_size_of_all = 0
     largest_size_of_all_averaged = 0
+    pars = []
+    for i in range(num_exp):
+        pars.append((i, corr, number_of_iters, num_nodes, update_fraction, average_degree, starting_distribution))
 
-    # Parallelize the experiments
-    with ProcessPoolExecutor(max_workers=10) as executor:
-        # Partial function for worker logic
-        worker_function = partial(parallel_cascade_experiment, corr, all_networks=all_networks, number_of_iters=number_of_iters)
-        
-        # Execute in parallel
-        results = list(executor.map(worker_function, range(number_of_experiments)))
+    # parallelizaiton
+    with Pool(PROCESSES) as pool:
+        assert PROCESSES < os.cpu_count(), "Lower the number of processes (PROCESSES)"
+        print(f"Starting parallel cascade experiments with correlation {corr}")
+        results = pool.map(parallel_cascade_experiment, pars)
 
-    # Collect results
+    # iterate over results and combine different distributions
     for result in results:
         (before_data, after_data, largest_size), (average_before_data, average_after_data, largest_size_averaged) = result
+
         if largest_size > largest_size_of_all:
             largest_size_of_all = largest_size
         if largest_size_averaged > largest_size_of_all_averaged:
@@ -218,7 +253,7 @@ def multiple_correlations_par(corr, all_networks):
             col_of_all_after_averaged[size].extend(polarizations)
 
     
-    print("Finished all cascade experiments")
+    print(f"Finished all cascade experiments for correlation {corr}")
     return (
         (collection_of_all_before,
         collection_of_all_after),
@@ -226,3 +261,34 @@ def multiple_correlations_par(corr, all_networks):
         (largest_size_of_all,
         largest_size_of_all_averaged),
     )
+
+if __name__ == "__main__":
+    correlations = np.linspace(-1, 1, 11)
+    correlations = np.round(correlations, 1)
+    initial_seeds = np.linspace(13, 1600, 11)
+    num_runs = 30
+    num_nodes = 200
+    update_fraction = 0.1
+    average_degree = 8
+    starting_distribution = 0.5     # L / R ratio (niet per se nodig maar kan misschien leuk zijn om te varieern)
+    p = average_degree/(num_nodes-1) 
+    updates = 300000
+    # all_networks = read_and_load_networks(num_runs, num_nodes, update_fraction, average_degree, starting_distribution, correlations)
+    cascades_before = defaultdict(lambda: defaultdict(list))
+    cascades_after = defaultdict(lambda: defaultdict(list))
+    save=True
+
+
+
+    for corr in correlations: 
+        print(f"starting experimentation for correlation: {corr}")
+        print("-----------------------------------------------")
+
+        (before_after, before_after_averaged, largest_sizes) = multiple_correlations_par(corr, num_runs, num_nodes, update_fraction, average_degree, starting_distribution)
+        (collection_of_all_before, collection_of_all_after) = before_after
+        (coll_of_all_before_averaged, coll_of_all_after_averaged) = before_after_averaged
+        (largest_size_of_all, largest_size_of_all_averaged) = largest_sizes
+    
+        
+        cascades_before[corr] = collection_of_all_before
+        cascades_after[corr] = collection_of_all_after
