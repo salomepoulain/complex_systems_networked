@@ -79,7 +79,7 @@ def parallel_network_generation(whichrun, num_nodes, seed, corr, iterations, upd
         raise ValueError(f"Unsupported network type: {network_type}")
 
     # Prepare the output directory
-    output_folder = f"networks/{network_type}/dummy/{corr}" 
+    output_folder = f"networks/{network_type}/{corr}" 
     output_filename = f"network_{whichrun}.txt"  
     output_path = os.path.join(output_folder, output_filename)
     os.makedirs(output_folder, exist_ok=True)

@@ -48,8 +48,6 @@ def run_assortativity_experiment(networks, network_type, num_runs, save_results=
     assort_coefs = defaultdict(list)
 
     for (corr, run), (init_nw, final_nw) in networks.items():
-
-        print(f'corr: {corr}, run: {run}')
         nx_network = convert_to_nx(final_nw)
 
         assort_coef = nx.attribute_assortativity_coefficient(nx_network, "ideology")
