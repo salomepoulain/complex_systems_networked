@@ -68,19 +68,3 @@ def run_assortativity_experiment(networks, network_type, num_runs, save_results=
         print(f'Results are saved in: assortativity_{network_type}_results.csv')
 
     plot_results(correlations, means, conf_int)
-
-
-# Dummy data
-correlations = np.linspace(-1, 1, 11)
-correlations = np.round(correlations, 1)
-initial_seeds = np.linspace(13, 1600, 11)
-num_runs = 10
-num_nodes = 200
-update_fraction = 0.1
-average_degree = 8
-starting_distribution = 0.5
-p = average_degree/(num_nodes-1) 
-updates = 10000
-
-# all_networks = read_and_load_networks(num_runs, num_nodes, update_fraction, average_degree, starting_distribution, correlations)
-# run_assortativity_experiment(all_networks, 'random', num_runs, save_results=False)
