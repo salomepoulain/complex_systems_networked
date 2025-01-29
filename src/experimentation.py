@@ -167,8 +167,13 @@ def create_data(iters, network):
 
     for _ in range(iters): 
         cascades, cascade_dist, cascade_polarization = network.analyze_network()
+        if np.any(np.isnan(cascade_polarization)):
+            print(f"this many nan values with reading in the network {len(np.where(np.isnan(cascade_polarization)))}")
         average_cascade_per_round.append(sum(cascade_dist)/number_of_samplers)
-        average_polarization_per_round.append(sum(cascade_polarization))
+        if len(cascade_polarization)> 0:
+            average_polarization_per_round.append(np.mean(np.abs(cascade_polarization)))
+        else:
+            average_polarization_per_round.append(0)
         all_cascade_sizes += cascade_dist
         all_polarizations += cascade_polarization
 

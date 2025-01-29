@@ -237,7 +237,7 @@ class Network:
         # merge sets of nodes that contain 1 or more of the same node -> cascade is overlapping and thus merged
         merged = []
         for current_set in participating:
-            # check for all disjoint lists (sets are converted to lists)
+            # check for all disjoint lists 
             overlapping_sets = [merged_set for merged_set in merged if not current_set.isdisjoint(merged_set)] 
             
             if overlapping_sets:
