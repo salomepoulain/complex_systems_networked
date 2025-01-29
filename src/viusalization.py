@@ -273,7 +273,7 @@ def create_distribution(data, num_exp=1):
 
     return counts, sizes, avg_polarizations
 
-def plot_cascade_animation(cascades_before, cascades_after, correlations, largest_sizes, num_exp, save=False, averaged=True):
+def plot_cascade_animation(cascades_before, cascades_after, correlations, largest_sizes, num_exp, what_net, save=False, averaged=True):
     """
     Create an animated visualization of cascade distributions over multiple correlation values.
 
@@ -376,11 +376,11 @@ def plot_cascade_animation(cascades_before, cascades_after, correlations, larges
 
     # Save or display animation
     if save:
-        ani.save(f"animations/cascade_distribution_animation_combination.gif", writer="ffmpeg", fps=1.5, dpi=300)
+        ani.save(f"animations/cascade_distribution/{what_net}/animation_combination.gif", writer="ffmpeg", fps=1.5, dpi=300)
     else:
         plt.show()
 
-def plot_cascade_dist_average(data, stadium, largest_size=120, num_exp=30, save=False, correlation=0, averaged=True):
+def plot_cascade_dist_average(data, stadium, what_net, largest_size=120, num_exp=30, save=False, correlation=0, averaged=True):
     """
     Plot a distribution of cascade sizes with bar heights representing the number of occurrences
     and bar colors representing the average polarization.
@@ -423,9 +423,9 @@ def plot_cascade_dist_average(data, stadium, largest_size=120, num_exp=30, save=
     # save the plot
     if save:
         if not averaged: 
-            plt.savefig(f"plots/cascade_distribution/{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
+            plt.savefig(f"plots/cascade_distribution/{what_net}/{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
         else:
-            plt.savefig(f"plots/cascade_distribution/averaged_{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
+            plt.savefig(f"plots/cascade_distribution/{what_net}/averaged_{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
 
     plt.show()
 
@@ -460,7 +460,7 @@ def calculate_average_per_gamma(cas, num_runs):
 
     return values_bef, values_af, variance_bef, variance_af
 
-def plot_cascades_gamma(cas, num_runs):
+def plot_cascades_gamma(cas, num_runs, what_net):
     values_bef, values_af, variance_bef, variance_af = calculate_average_per_gamma(cas, num_runs)
     fig, ax = plt.subplots(figsize=(5,4))
 
@@ -513,7 +513,7 @@ def plot_cascades_gamma(cas, num_runs):
     # ax.set_title("Cascade Size Before and After vs. Gamma")
     ax.legend(handles=legend_handles)
 
-    plt.savefig(f"plots/cascade_distribution/averaged_over_gammas.png", dpi=300, bbox_inches='tight')
+    plt.savefig(f"plots/cascade_distribution/{what_net}/averaged_over_gammas.png", dpi=300, bbox_inches='tight')
     plt.show()
 
 
@@ -624,53 +624,3 @@ def test_significance(values_bef, values_af, variance_bef, variance_af, num_runs
         }
 
     return results
-
-
-###############################################################################################################
-###############################################################################################################
-###############################################################################################################
-
-        # num_updates = 1000
-    # for i in range(num_updates):
-        # network.update_round()
-        # all_alterations += network.alterations
-
-        # not too many updates in one step
-        # if all_alterations > 0.02 * len(network.all_nodes):
-            # num_updates=i
-            # break
-
-    # if frame % framestep == 0:
-    #     if frame==0:
-    #         waarde = 0
-    #     else:
-    #         waarde = frame - framestep
-    #     # print(f"between frames {waarde}, {frame} there were {all_alterations} alterations made ({num_updates} network updates made)")
-        
-    #     all_alterations= 0
-    #     seedje += frame
-    #     # pos_target.update(nx.spring_layout(graph, k=0.2, iterations=50, seed=seedje))
-
-
-    ###############################################################################################################
-    ###############################################################################################################
-    ###############################################################################################################
-
-    # def plot_degree_distribution(self):
-    #     # calculate degrees of all nodes
-    #     degrees = [deg for _, deg in self.graph.degree()]
-
-    #     # count frequencies of each degree
-    #     degree_counts = Counter(degrees)
-
-    #     # sort by degree
-    #     degrees, counts = zip(*sorted(degree_counts.items()))
-
-    #     # plot the degree distribution
-    #     plt.figure(figsize=(8, 6))
-    #     plt.bar(degrees, counts, width=0.8, color="blue", edgecolor="black", alpha=0.7)
-    #     plt.title("Degree Distribution")
-    #     plt.xlabel("Degree")
-    #     plt.ylabel("Frequency")
-    #     plt.grid(True, linestyle="--", alpha=0.7)
-    #     plt.show()

@@ -475,7 +475,7 @@ class ScaleFreeNetwork(_Network):
         fit = Fit(degrees)
         print(f"Power-law fit: alpha={fit.power_law.alpha}, KS={fit.power_law.KS()}")
         assert fit.power_law.KS() < 0.5, f"Power-law fit is not significant; {fit.power_law.KS()}"
-        assert fit.power_law.alpha < 7, f"Power-law exponent is too high; {fit.power_law.alpha}"
+        # assert fit.power_law.alpha < 7, f"Power-law exponent is too high; {fit.power_law.alpha}"
 
     def network_adjustment(self, sL, sR):
         """

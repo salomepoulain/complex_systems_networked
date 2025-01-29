@@ -1,4 +1,5 @@
 from src.classes.network import RandomNetwork, ScaleFreeNetwork
+from src.classes.node import Node
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 import os
@@ -48,28 +49,6 @@ def get_network_properties(network, seed):
         print("Network should be either scale-free or random")
 
     return properties
-
-
-# def get_network_properties(network, seed):
-#     # Replace with actual calculations for your network
-#     corr = network.correlation
-#     node_info = []
-#     connection_IDs = []
-#     for node in network.all_nodes:
-#         node_info.append((node.ID, node.identity, node.response_threshold))
-#     for conn in network.connections:
-#         connection_IDs.append((conn[0].ID, conn[1].ID))
-#     properties = {
-#         "Number of Nodes": len(network.all_nodes),
-#         "Number of Edges": len(network.connections),
-#         "Correlation": corr,
-#         "P value": network.p,
-#         "Seed": seed,
-#         "Update fraction": network.update_fraction,
-#         "Connections": connection_IDs,
-#         "Nodes": node_info
-#     }
-#     return properties
 
 
 def parallel_network_generation(whichrun, num_nodes, seed, corr, iterations, update_fraction, starting_distribution, p, m=0, network_type="random"):
@@ -134,25 +113,6 @@ def generate_networks(correlations, initial_seeds, num_nodes, iterations, how_ma
             list(executor.map(worker_function, runs))
 
 
-
-# def generate_networks(correlations, initial_seeds, num_nodes, iterations, how_many, update_fraction, starting_distribution, p):
-#     print("starting parallel generation of networks")
-#     print("-----------------------------------------")
-#     runs = np.arange(how_many)  # Create a range for the runs
-#     num_threads = min(how_many, 10)
-#     for j,corr in enumerate(correlations): 
-#         print(f"starting correlation {corr}")
-#         seed = int(initial_seeds[j])
-#         num_threads = 10
-        
-#         worker_function = partial(parallel_network_generation, num_nodes=num_nodes, seed=seed, corr=corr, iterations=iterations, 
-#                                   update_fraction=update_fraction, starting_distribution=starting_distribution, p=p, m=0, network_type=network_sort)
-        
-#         with ProcessPoolExecutor(max_workers=num_threads) as executer:
-#             list(executer.map(worker_function, runs))
-
-
-
 def read_network_properties(file_path):
     """
     Reads network properties from a .txt file and converts them back
@@ -185,20 +145,27 @@ def read_network_properties(file_path):
             # Parse nodes as a list of tuples
             nodes = eval(value)  # Use eval to safely parse the list of tuples
             properties[key] = [(int(node_id), identity, float(threshold)) for node_id, identity, threshold in nodes]
+        
         else:
             properties[key] = value
     return properties
 
-def read_and_load_networks(num_runs, num_nodes, update_fraction, average_degree, starting_distribution, correlations):
+def read_and_load_networks(num_runs, num_nodes, update_fraction, average_degree, starting_distribution, correlations, whichtype):
     p = average_degree/(num_nodes-1) 
     networks = defaultdict(tuple)
     for corr in correlations:
         for i in range(num_runs):
-            network_properties = read_network_properties(f"networks/random/{corr}/network_{i}.txt")
+            network_properties = read_network_properties(f"networks/{whichtype}/{corr}/network_{i}.txt")
             seedje = network_properties["Seed"]
             search_nodes = defaultdict(Node)
-            before_network = Network("random", num_nodes, mean=0, correlation=corr, update_fraction=update_fraction, starting_distribution=starting_distribution, seed=seedje, p=p)
-            after_network = Network("random", num_nodes, mean=0, correlation=corr, update_fraction=update_fraction, starting_distribution=starting_distribution, seed=seedje, p=p)
+
+            if whichtype == "random":
+                before_network = RandomNetwork(num_nodes=num_nodes, mean=0, correlation=corr, update_fraction=update_fraction, starting_distribution=starting_distribution, seed=seedje, p=p) 
+                after_network = RandomNetwork(num_nodes=num_nodes, mean=0, correlation=corr, update_fraction=update_fraction, starting_distribution=starting_distribution, seed=seedje, p=p) 
+            else: 
+                m= int(network_properties["Initial Edges (m)"])
+                before_network = ScaleFreeNetwork(num_nodes=num_nodes,m=m, mean=0, correlation=corr, update_fraction=update_fraction, starting_distribution=starting_distribution, seed=seedje) 
+                after_network = ScaleFreeNetwork(num_nodes=num_nodes, m=m, mean=0, correlation=corr, update_fraction=update_fraction, starting_distribution=starting_distribution, seed=seedje) 
             after_network.connections = set()
 
             for nodeje in after_network.all_nodes:
@@ -213,14 +180,20 @@ def read_and_load_networks(num_runs, num_nodes, update_fraction, average_degree,
 
     return networks
 
-def read_and_load_network_sub(sub_id, corr, num_nodes, update_fraction, average_degree, starting_distribution):
+def read_and_load_network_sub(sub_id, corr, num_nodes, update_fraction, average_degree, starting_distribution, whichtype):
     p = average_degree/(num_nodes-1) 
 
-    network_properties = read_network_properties(f"networks/random/{corr}/network_{sub_id}.txt")
+    network_properties = read_network_properties(f"networks/{whichtype}/{corr}/network_{sub_id}.txt")
     seedje = network_properties["Seed"]
     search_nodes = defaultdict(Node)
-    before_network = Network("random", num_nodes, mean=0, correlation=corr, update_fraction=update_fraction, starting_distribution=starting_distribution, seed=seedje, p=p)
-    after_network = Network("random", num_nodes, mean=0, correlation=corr, update_fraction=update_fraction, starting_distribution=starting_distribution, seed=seedje, p=p)
+
+    if whichtype == "random":
+        before_network = RandomNetwork(num_nodes=num_nodes, mean=0, correlation=corr, update_fraction=update_fraction, starting_distribution=starting_distribution, seed=seedje, p=p) 
+        after_network = RandomNetwork(num_nodes=num_nodes, mean=0, correlation=corr, update_fraction=update_fraction, starting_distribution=starting_distribution, seed=seedje, p=p) 
+    else: 
+        m= int(network_properties["Initial Edges (m)"])
+        before_network = ScaleFreeNetwork(num_nodes=num_nodes,m=m, mean=0, correlation=corr, update_fraction=update_fraction, starting_distribution=starting_distribution, seed=seedje)
+        after_network = ScaleFreeNetwork(num_nodes=num_nodes, m=m, mean=0, correlation=corr, update_fraction=update_fraction, starting_distribution=starting_distribution, seed=seedje) 
     after_network.connections = set()
 
     for nodeje in after_network.all_nodes:
@@ -230,7 +203,6 @@ def read_and_load_network_sub(sub_id, corr, num_nodes, update_fraction, average_
     for (node1, node2) in network_properties["Connections"]:
         search_nodes[node1].node_connections.add(search_nodes[node2])
         after_network.connections.add((search_nodes[node1], search_nodes[node2]))
-
 
     return (before_network, after_network)
 
@@ -276,8 +248,8 @@ def create_data(iters, network):
 def parallel_cascade_experiment(par):
     """Worker function for one cascade experiment."""
 
-    experiment_id, corr, number_of_iters, num_nodes, update_fraction, average_degree, starting_distribution = par
-    before_network, after_network = read_and_load_network_sub(experiment_id, corr, num_nodes, update_fraction, average_degree, starting_distribution)
+    experiment_id, corr, number_of_iters, num_nodes, update_fraction, average_degree, starting_distribution, which_net = par
+    before_network, after_network = read_and_load_network_sub(experiment_id, corr, num_nodes, update_fraction, average_degree, starting_distribution, whichtype=which_net)
 
     before_data, average_before_data = create_data(number_of_iters, before_network)
     after_data, average_after_data = create_data(number_of_iters, after_network)
@@ -293,7 +265,7 @@ def parallel_cascade_experiment(par):
 
 
 PROCESSES = 10
-def multiple_correlations_par(corr, num_exp, num_nodes, update_fraction, average_degree, starting_distribution):
+def multiple_correlations_par(corr, num_exp, num_nodes, update_fraction, average_degree, starting_distribution, what_net):
     '''
     This function is the parallelized framework for cascade distribution calculation. 
     Every sub-process reads in a network corresponding with a correlation value and returns a cascade distribution. 
@@ -309,12 +281,12 @@ def multiple_correlations_par(corr, num_exp, num_nodes, update_fraction, average
     largest_size_of_all_averaged = 0
     pars = []
     for i in range(num_exp):
-        pars.append((i, corr, number_of_iters, num_nodes, update_fraction, average_degree, starting_distribution))
+        pars.append((i, corr, number_of_iters, num_nodes, update_fraction, average_degree, starting_distribution, what_net))
 
     # parallelizaiton
     with Pool(PROCESSES) as pool:
         assert PROCESSES < os.cpu_count(), "Lower the number of processes (PROCESSES)"
-        print(f"Starting parallel cascade experiments with correlation {corr}")
+        print(f"Starting parallel cascade experiments with correlation {corr} for the {what_net} networks")
         results = pool.map(parallel_cascade_experiment, pars)
 
     # iterate over results and combine different distributions
@@ -367,7 +339,7 @@ if __name__ == "__main__":
         print(f"starting experimentation for correlation: {corr}")
         print("-----------------------------------------------")
 
-        (before_after, before_after_averaged, largest_sizes) = multiple_correlations_par(corr, num_runs, num_nodes, update_fraction, average_degree, starting_distribution)
+        (before_after, before_after_averaged, largest_sizes) = multiple_correlations_par(corr, num_runs, num_nodes, update_fraction, average_degree, starting_distribution, "random")
         (collection_of_all_before, collection_of_all_after) = before_after
         (coll_of_all_before_averaged, coll_of_all_after_averaged) = before_after_averaged
         (largest_size_of_all, largest_size_of_all_averaged) = largest_sizes
