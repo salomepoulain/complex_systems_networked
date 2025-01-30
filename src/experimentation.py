@@ -62,7 +62,7 @@ def parallel_network_generation(whichrun, num_nodes, seed, corr, iterations, upd
         raise ValueError(f"Unsupported network type: {network_type}")
 
     # Prepare the output directory
-    output_folder = f"networks/{network_type}/{corr}" 
+    output_folder = f"networks/dummy/{network_type}_2/{corr}" 
     output_filename = f"network_{whichrun}.txt"  
     output_path = os.path.join(output_folder, output_filename)
     os.makedirs(output_folder, exist_ok=True)
@@ -155,7 +155,7 @@ def read_and_load_networks(num_runs, num_nodes, update_fraction, average_degree,
     networks = defaultdict(tuple)
     for corr in correlations:
         for i in range(num_runs):
-            network_properties = read_network_properties(f"networks/{whichtype}/{corr}/network_{i}.txt")
+            network_properties = read_network_properties(f"networks/{whichtype}_2/{corr}/network_{i}.txt")
             seedje = network_properties["Seed"]
             search_nodes = defaultdict(Node)
 
@@ -183,7 +183,7 @@ def read_and_load_networks(num_runs, num_nodes, update_fraction, average_degree,
 def read_and_load_network_sub(sub_id, corr, num_nodes, update_fraction, average_degree, starting_distribution, whichtype):
     p = average_degree/(num_nodes-1) 
 
-    network_properties = read_network_properties(f"networks/{whichtype}/{corr}/network_{sub_id}.txt")
+    network_properties = read_network_properties(f"networks/{whichtype}_2/{corr}/network_{sub_id}.txt")
     seedje = network_properties["Seed"]
     search_nodes = defaultdict(Node)
 

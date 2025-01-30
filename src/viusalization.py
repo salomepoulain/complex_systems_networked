@@ -503,10 +503,16 @@ def plot_cascades_gamma(cas, num_runs, what_net):
 
     for x, y, color in zip(keys_af, sizes_af, colors_af):
         ax.scatter(x, y, color=color, edgecolor="black", marker="s", label="After" if x == keys_af[0] else "", zorder=2)
-
+    if what_net is not "both":
+        label1 = "Before"
+        label2 = "After"
+    else:
+        label1 = "Random"
+        label2 = "Scale_free"
+    
     legend_handles = [
-    plt.Line2D([], [], marker="o", color="w", markerfacecolor="white", markersize=8, markeredgecolor="black", label="Before"),
-    plt.Line2D([], [], marker="s", color="w", markerfacecolor="white", markersize=8, markeredgecolor="black", label="After"),
+    plt.Line2D([], [], marker="o", color="w", markerfacecolor="white", markersize=8, markeredgecolor="black", label=label1),
+    plt.Line2D([], [], marker="s", color="w", markerfacecolor="white", markersize=8, markeredgecolor="black", label=label2),
     ]
     ax.set_xlabel("Correlation")
     ax.set_ylabel("Average Cascade Size")

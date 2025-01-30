@@ -391,12 +391,28 @@ class ScaleFreeNetwork(_Network):
         assert self.m > 0, "m must be positive."
         assert self.m < n, "Number of connections 'm' must be less than number of nodes."
 
+        # self.rng.shuffle(self.all_nodes)
+        # identities = ['L'] * len(self.nodesL) + ['R'] * len(self.nodesR)
+        # self.rng.shuffle(identities)
+        # for i, node in enumerate(self.all_nodes):
+        #     node.identity = identities[i]
+        
         # Initialize degree_distribution to 0 for all nodes
         for node in self.all_nodes:
             self.degree_distribution[node] = 0
 
+        
         # Step 1: Pick m initial nodes and fully connect them
         m0_nodes = self.rng.choice(self.all_nodes, self.m, replace=False)  # Use self.rng.choice for reproducibility
+
+        m1 = int(self.m/2)
+        if self.m %2 == 0:
+            m2 = int(self.m/2)
+        else:
+            m2 = int(self.m/2) + 1
+
+        # balanced out hubs
+        m0_nodes = np.concatenate([self.rng.choice(self.nodesR, m1, replace=False), self.rng.choice(self.nodesL, m2, replace=False)])
 
         if self.m > 1:  # Fully connect seed nodes only if m > 1
             for i in range(len(m0_nodes)):
@@ -413,7 +429,7 @@ class ScaleFreeNetwork(_Network):
         # Ensure total_degree is initialized properly
         assert self.total_degree > 0, "Seed network must have edges, so total_degree > 0."
         
-        can_be_picked = self.all_nodes.copy()
+        # can_be_picked = self.all_nodes.copy()
         # node2 = self.rng.choice(List(self.all_nodes - cant_be_picked))
 
         # Step 2: For the remaining nodes, attach each with m edges via scale-free selection
