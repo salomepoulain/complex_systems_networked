@@ -7,6 +7,7 @@ from collections import defaultdict
 from scipy.stats import ttest_ind_from_stats
 import networkx as nx
 import numpy as np
+import powerlaw
 
 def initial_graph(network, clusters=[]):
     """
@@ -207,40 +208,6 @@ def plot_network_clusters(network, cluster):
     plt.show()
 
 
-# def plot_cascade_dist(data):
-#     # Prepare the figure
-#     fig, ax = plt.subplots(figsize=(7, 4))
-    
-#     # Plot each cascade size with vertical stacking
-#     for size, values in data.items():
-#         if size==1:
-#             continue
-#         y_offsets = [y * 0.5 for y in range(len(values))]
-#         for (index, polarization), y in zip(values, y_offsets):
-#             color = plt.cm.coolwarm((polarization + 1) / 2)  # Map polarization (-1 to 1) to colormap
-#             ax.scatter(size, y, color=color, s=30)  # Plot the dot
-#             # ax.annotate(str(index), (size, y), textcoords="offset points", xytext=(5, 5), fontsize=8)
-    
-#     # Add labels and title
-#     ax.set_title("Cascade Sizes and Polarizations")
-#     ax.set_xlabel("Cascade Size")
-#     ax.set_ylabel("Stacked Occurrences")
-#     # ax.set_xscale("log")
-#     # ax.set_yscale("log")
-#     ax.set_xlim(1)
-#     ax.set_ylim(1)
-#     ax.grid(True)
-
-#     # Add a colorbar
-#     sm = plt.cm.ScalarMappable(cmap="coolwarm", norm=plt.Normalize(vmin=-1, vmax=1))
-#     sm.set_array([])
-#     cbar = plt.colorbar(sm, ax=ax)
-#     cbar.set_label("Polarization (-1: Red, 1: Blue)")
-
-#     # Show the plot
-#     plt.tight_layout()
-#     plt.show()
-
 def create_distribution(data, num_exp=1):
     """
     This function iterates through a list of cascades and extracts the size of the cascade, 
@@ -251,27 +218,87 @@ def create_distribution(data, num_exp=1):
     counts = []
     avg_polarizations = []
 
-    # Create a custom green-to-red colormap
-   
     # values essentially holds the list of the orientation of nodes (+1 for left, -1 for right) within a cascade
     for size, values in data.items():
-        # if size == 1:  # Skip size 1 if necessary
-        #     continue
         sizes.append(size)  # The cascade size
-        counts.append(len(values))  # Number of occurrences (bar height)
+        counts.append(len(values))  # Number of occurrences 
 
         # the polarizations are already weighted by its prevelences
-        mean_abs_value = np.mean(np.abs(values))
+        polarization_val = np.mean(np.abs(values))
         
         if np.isnan(mean_abs_value):
             print(f"Warning: NaN detected in mean absolute values for input {values}")
             mean_abs_value = 0  # Default to 0 or another fallback value
         
-        avg_polarizations.append(mean_abs_value)
+
+        avg_polarizations.append(polarization_val)
     counts=np.array(counts, dtype=np.float64)
+
+    #normalize by dividng through number of experiments
     counts/=num_exp
 
     return counts, sizes, avg_polarizations
+
+
+def plot_cascade_power_law(data, stadium, what_net, largest_size=120, num_exp=30, save=False, correlation=0, averaged=True):
+    """
+    Zooming in on the tail of the distribution and see if there's a powerlaw that can be detected. Cascade distriubution
+    is visualized for cascade sizes of bigger and equal to 2. 
+    
+    Args:
+        data: A dictionary where keys are cascade sizes and values are lists of the polarizations of nodes within a cascade.
+    """
+    
+    # recalculating the full distribution and selecting the relevant cascade sizes (>=2)
+    counts, sizes, _ = create_distribution(data, num_exp)
+    sizes = np.array(sizes)
+    counts = np.array(counts)
+    valid_indices = sizes >=2
+    filtered_sizes = sizes[valid_indices]
+    filtered_counts = counts[valid_indices]
+
+    expanded_data = np.repeat(filtered_sizes, np.int64(filtered_counts*30)) #bringing back the actual number of occurrences
+    fit = powerlaw.Fit(expanded_data, xmin=2)
+    print(f"Estimated exponent: {fit.power_law.alpha}")
+    
+    R, p = fit.distribution_compare('power_law', 'lognormal')
+    print(f"Likelihood Ratio (R): {R}, p-value: {p}")
+
+    if p < 0.05:
+        print("Power law is significantly better than log-normal.")
+    else:
+        print("Log-normal might be a better fit.")
+    plt.subplots(figsize=(5, 3.5))
+
+    # Plot the fitted power-law
+    fit.power_law.plot_pdf(color="r", linestyle="--", label=f"Power-Law Fit (α={fit.power_law.alpha:.2f})")
+
+    # normalizing data to align with powerlaw package
+    normalized_counts = filtered_counts / 30  
+    plt.scatter(filtered_sizes, normalized_counts, color="grey", edgecolor="black", s=20, linewidth=0.5, label="pdf of size distribution")
+    
+    # log log scale for powerlaw detection
+    plt.yscale("log")
+    plt.xscale("log")
+    plt.legend()
+
+    # plt.title(f"Powerlaw  {correlation})")
+    plt.xlabel("Cascade Size")
+    plt.ylabel("Number of Occurrences")
+    plt.xlim(0, largest_size+1) 
+    plt.ylim(10e-4)
+    plt.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.3)
+
+    plt.tight_layout()
+
+    # save the plot
+    if save:
+        if not averaged: 
+            plt.savefig(f"plots/cascade_distribution/{what_net}/powerlaw_{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
+        else:
+            plt.savefig(f"plots/cascade_distribution/{what_net}/powerlaw_{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
+
+    plt.show()
 
 def plot_cascade_animation(cascades_before, cascades_after, correlations, largest_sizes, num_exp, what_net, save=False, averaged=True):
     """
@@ -382,8 +409,8 @@ def plot_cascade_animation(cascades_before, cascades_after, correlations, larges
 
 def plot_cascade_dist_average(data, stadium, what_net, largest_size=120, num_exp=30, save=False, correlation=0, averaged=True):
     """
-    Plot a distribution of cascade sizes with bar heights representing the number of occurrences
-    and bar colors representing the average polarization.
+    Plot a distribution of cascade sizes with dots representing the number of occurrences
+    and dot colors representing the average polarization, to see if a powerlaw can be observed in the tail.
     
     Args:
         data: A dictionary where keys are cascade sizes and values are lists of the polarizations of nodes within a cascade.
@@ -395,14 +422,8 @@ def plot_cascade_dist_average(data, stadium, what_net, largest_size=120, num_exp
     # Normalize polarization for coloring
     colors = [green_to_red(p) for p in avg_polarizations]
 
-    # Create the bar plot
-    if averaged:
-        wid = 0.05
-    else:
-        wid = 1
-
-    fig, ax = plt.subplots(figsize=(7, 3.5))
-    bars = ax.bar(sizes, counts, color=colors, edgecolor="black", linewidth=0.5, width=wid)
+    fig, ax = plt.subplots(figsize=(5, 3.5))
+    ax.scatter(sizes, counts, color=colors, edgecolor="black", linewidth=0.5, s=20)
 
     # Add a colorbar for polarization
     sm = plt.cm.ScalarMappable(cmap=green_to_red, norm=plt.Normalize(vmin=0, vmax=1))
@@ -410,7 +431,10 @@ def plot_cascade_dist_average(data, stadium, what_net, largest_size=120, num_exp
     cbar = plt.colorbar(sm, ax=ax)
     cbar.set_label("0:non polarized-1:fully polarized")
     
+    # set scales to log log for powerlaw detectio
     ax.set_yscale("log")
+    ax.set_xscale("log")
+
     # Add labels and title
     ax.set_title(f"Cascade Size Distribution with Polarization (correlation: {correlation})")
     ax.set_xlabel("Cascade Size")
@@ -428,6 +452,7 @@ def plot_cascade_dist_average(data, stadium, what_net, largest_size=120, num_exp
             plt.savefig(f"plots/cascade_distribution/{what_net}/averaged_{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
 
     plt.show()
+
 
 def calculate_average_per_gamma(cas, num_runs): 
     cascades_before_averaged, cascades_after_averaged = cas
@@ -459,68 +484,6 @@ def calculate_average_per_gamma(cas, num_runs):
         variance_af[key] = (size_var_af, pol_var_af)
 
     return values_bef, values_af, variance_bef, variance_af
-
-def plot_cascades_gamma(cas, num_runs, what_net):
-    values_bef, values_af, variance_bef, variance_af = calculate_average_per_gamma(cas, num_runs)
-    fig, ax = plt.subplots(figsize=(5,4))
-
-    green_to_red = plt.cm.RdYlGn_r
-    # Normalize polarization for coloring
-    keys_bef = list(values_bef.keys())  # Gamma values (X-axis)
-    sizes_bef = [v[0] for v in values_bef.values()]  # Sizes for Y-axis
-    pol_bef = [v[1] for v in values_bef.values()]  # Polarization for colors
-
-    keys_af = list(values_af.keys())  # Gamma values (X-axis)
-    sizes_af = [v[0] for v in values_af.values()]  # Sizes for Y-axis
-    pol_af = [v[1] for v in values_af.values()]  # Polarization for colors
-
-    #Coloring scheme with polarization
-    norm = plt.Normalize(vmin=0, vmax=1)
-    colors_bef = [green_to_red(norm(p)) for p in pol_bef]
-    colors_af = [green_to_red(norm(p)) for p in pol_af]
-    
-    var_sizes_bef = np.array([variance_bef[k][0] for k in keys_bef])  # Variance for sizes (Before)
-    var_sizes_af = np.array([variance_af[k][0] for k in keys_af])  # Variance for sizes (After)
-
-    #Computing confidence interval with calculated variance
-    sem_sizes_bef = np.sqrt(var_sizes_bef) / np.sqrt(num_runs)
-    sem_sizes_af = np.sqrt(var_sizes_af) / np.sqrt(num_runs)
-    ci_sizes_bef = 1.96 * sem_sizes_bef
-    ci_sizes_af = 1.96 * sem_sizes_af
-
-    sm = plt.cm.ScalarMappable(cmap=green_to_red, norm=plt.Normalize(vmin=0, vmax=1))
-    sm.set_array([])
-    cbar = plt.colorbar(sm, ax=ax)
-    cbar.set_label("0:non polarized-1:fully polarized")
-    
-    
-    # make an errorbar to visualize CI
-    ax.errorbar(keys_bef, sizes_bef, yerr=ci_sizes_bef, color="black", linewidth = 0.8, capsize=2, label="", linestyle="none", zorder=1)
-    ax.errorbar(keys_af, sizes_af, yerr=ci_sizes_af, color="black", linewidth=0.8, capsize=2, label="", linestyle="none", zorder=1)
-
-    for x, y, color in zip(keys_bef, sizes_bef, colors_bef):
-        ax.scatter(x, y, color=color, edgecolor="black", label="Before" if x == keys_bef[0] else "", zorder=2)
-
-    for x, y, color in zip(keys_af, sizes_af, colors_af):
-        ax.scatter(x, y, color=color, edgecolor="black", marker="s", label="After" if x == keys_af[0] else "", zorder=2)
-    if what_net is not "both":
-        label1 = "Before"
-        label2 = "After"
-    else:
-        label1 = "Random"
-        label2 = "Scale_free"
-    
-    legend_handles = [
-    plt.Line2D([], [], marker="o", color="w", markerfacecolor="white", markersize=8, markeredgecolor="black", label=label1),
-    plt.Line2D([], [], marker="s", color="w", markerfacecolor="white", markersize=8, markeredgecolor="black", label=label2),
-    ]
-    ax.set_xlabel("Correlation")
-    ax.set_ylabel("Average Cascade Size")
-    # ax.set_title("Cascade Size Before and After vs. Gamma")
-    ax.legend(handles=legend_handles)
-
-    plt.savefig(f"plots/cascade_distribution/{what_net}/averaged_over_gammas.png", dpi=300, bbox_inches='tight')
-    plt.show()
 
 
 def print_network(network):
@@ -582,6 +545,86 @@ def calculate_fraction(network):
     average_left = fraction_left / (len(network.all_nodes) / 2)
 
     return average_right, average_left
+
+def plot_cascades_gamma(cas, num_runs, what_net):
+    '''
+    This plot calculates the average cascade size and polarization per correlation value for two networks.
+    allowing for clear visual comparison
+
+    args: 
+    cas-cascade distributions for both networks (along with polarization)
+    num_runs-number of experiments.
+    what_net- "random" (comparing before and after for random), "scale_free" (comparing before after scale_free) 
+    "both" (comparing after scale free vs after random)
+    '''
+    values_bef, values_af, variance_bef, variance_af = calculate_average_per_gamma(cas, num_runs)
+    fig, ax = plt.subplots(figsize=(5,4))
+
+    green_to_red = plt.cm.RdYlGn_r
+    # Normalize polarization for coloring
+    keys_bef = list(values_bef.keys())  # Gamma values (X-axis)
+    sizes_bef = [v[0] for v in values_bef.values()]  # Sizes for Y-axis
+    pol_bef = [v[1] for v in values_bef.values()]  # Polarization for colors
+
+    keys_af = list(values_af.keys())  # Gamma values (X-axis)
+    sizes_af = [v[0] for v in values_af.values()]  # Sizes for Y-axis
+    pol_af = [v[1] for v in values_af.values()]  # Polarization for colors
+
+    #Coloring scheme with polarization
+    norm = plt.Normalize(vmin=0, vmax=1)
+    colors_bef = [green_to_red(norm(p)) for p in pol_bef]
+    colors_af = [green_to_red(norm(p)) for p in pol_af]
+    
+    var_sizes_bef = np.array([variance_bef[k][0] for k in keys_bef])  # Variance for sizes (Before)
+    var_sizes_af = np.array([variance_af[k][0] for k in keys_af])  # Variance for sizes (After)
+
+    #Computing confidence interval with calculated variance
+    sem_sizes_bef = np.sqrt(var_sizes_bef) / np.sqrt(num_runs)
+    sem_sizes_af = np.sqrt(var_sizes_af) / np.sqrt(num_runs)
+    ci_sizes_bef = 1.96 * sem_sizes_bef
+    ci_sizes_af = 1.96 * sem_sizes_af
+
+    sm = plt.cm.ScalarMappable(cmap=green_to_red, norm=plt.Normalize(vmin=0, vmax=1))
+    sm.set_array([])
+    cbar = plt.colorbar(sm, ax=ax)
+    cbar.set_label("0:non polarized-1:fully polarized")
+    
+    
+    # make an errorbar to visualize CI
+    ax.errorbar(keys_bef, sizes_bef, yerr=ci_sizes_bef, color="black", linewidth = 0.8, capsize=2, label="", linestyle="none", zorder=1)
+    ax.errorbar(keys_af, sizes_af, yerr=ci_sizes_af, color="black", linewidth=0.8, capsize=2, label="", linestyle="none", zorder=1)
+
+    # distinct between before after comparison and scale-free vs random comparison
+    if what_net != "both":
+        label1 = "Before"
+        label2 = "After"
+        marker1 = "o"
+        marker2 = "s"
+    else:
+        label1 = "Random"
+        label2 = "Scale-free"
+        marker1 = "v"
+        marker2 = "h"
+
+    # plotting for both networks
+    for x, y, color in zip(keys_bef, sizes_bef, colors_bef):
+        ax.scatter(x, y, color=color, edgecolor="black", linewidths=0.5, marker=marker1, s=50, label="Before" if x == keys_bef[0] else "", zorder=2)
+
+    for x, y, color in zip(keys_af, sizes_af, colors_af):
+        ax.scatter(x, y, color=color, edgecolor="black", linewidths=0.5, marker=marker2, s=50, label="After" if x == keys_af[0] else "", zorder=2)
+    
+    
+    legend_handles = [
+    plt.Line2D([], [], marker=marker1, color="w", markerfacecolor="white", markersize=6, markeredgecolor="black", label=label1),
+    plt.Line2D([], [], marker=marker2, color="w", markerfacecolor="white", markersize=6, markeredgecolor="black", label=label2),
+    ]
+    ax.set_xlabel("News Correlation")
+    ax.set_ylabel("Average Cascade Size")
+    ax.legend(handles=legend_handles)
+
+    # saving plot in destined folder
+    plt.savefig(f"plots/cascade_distribution/{what_net}/averaged_over_gammas.png", dpi=300, bbox_inches='tight')
+    plt.show()
 
 def test_significance(values_bef, values_af, variance_bef, variance_af, num_runs=30):
     """
