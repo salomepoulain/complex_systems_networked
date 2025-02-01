@@ -1,4 +1,4 @@
-from src.classes.network import Network
+from src.classes.network import ScaleFreeNetwork, RandomNetwork
 import numpy as np
 import matplotlib.pyplot as plt
 from concurrent.futures import ProcessPoolExecutor
@@ -6,7 +6,7 @@ from functools import partial
 import time
 import os
 
-def average_degree_dist(num_runs, steady_state_iter, num_nodes, correlation, update_fraction, starting_distribution, p):
+def average_degree_dist(num_runs, steady_state_iter, num_nodes, correlation, update_fraction, starting_distribution, p = None, m = None):
     """Calculates averaged degree distribution for multiple networks.
 
     Args:
@@ -27,7 +27,7 @@ def average_degree_dist(num_runs, steady_state_iter, num_nodes, correlation, upd
     for j in range(num_runs):
 
         # Create network and let run for some amount of runs
-        network = Network(num_nodes, 0, correlation, starting_distribution, update_fraction, p)
+        network = ScaleFreeNetwork(num_nodes=num_nodes, mean=0, correlation=correlation, update_fraction=update_fraction, starting_distribution=starting_distribution, m=m)
         for i in range(int(steady_state_iter)):
             network.update_round()
 
@@ -84,7 +84,7 @@ def degree_and_thrshld_correlation(network_type, steady_state_iter, num_nodes, c
     Returns:
         Tuple of an array containing the degree and threshold, and the correlation coefficient.
     """    
-    network = Network(network_type, num_nodes, mean=0, correlation=correlation, starting_distribution=starting_distribution, 
+    network = ScaleFreeNetwork(network_type, num_nodes, mean=0, correlation=correlation, starting_distribution=starting_distribution, 
                       update_fraction=update_fraction, p=p, m=m)
 
     for i in range(int(steady_state_iter)):

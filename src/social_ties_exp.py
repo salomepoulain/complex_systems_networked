@@ -5,15 +5,16 @@ from collections import defaultdict
 
 def plot_results(x_data, mean_same, std_same, mean_diff, std_diff):
     """Plot the change in social ties."""
-    plt.figure(figsize=(7,5), dpi=300)
-    plt.scatter(x_data, mean_same, color='blue', label='Same Ideology')
-    plt.fill_between(x_data, mean_same - std_same, mean_same + std_same, color='blue', alpha=0.5)
-    plt.scatter(x_data, mean_diff, color='red', label='Different Ideology')
-    plt.fill_between(x_data, mean_diff - std_diff, mean_diff + std_diff, color='red', alpha=0.5)
+    plt.figure(figsize=(6,5), dpi=500)
+    plt.scatter(x_data, mean_same, color='navy', label='Same Ideology')
+    plt.fill_between(x_data, mean_same - std_same, mean_same + std_same, color='navy', alpha=0.5)
+    plt.scatter(x_data, mean_diff, color='royalblue', label='Different Ideology')
+    plt.fill_between(x_data, mean_diff - std_diff, mean_diff + std_diff, color='royalblue', alpha=0.5)
     plt.hlines(0, xmin=-1.1, xmax=1.1, color='grey', ls='dotted')
-    plt.xlabel(r'Information Ecosystem $\gamma$', fontsize=14)
+    plt.xlabel('News Correlation', fontsize=14)
     plt.ylabel(r'Net $\Delta$ social ties', fontsize=14)
     plt.xlim(-1.1, 1.1)
+    plt.ylim(-2, 2)
     plt.legend()
     plt.tight_layout()
     plt.show()
