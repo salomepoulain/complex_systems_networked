@@ -5,6 +5,7 @@ import pandas as pd
 from collections import defaultdict
 from scipy.stats import norm
 from statsmodels.stats.multitest import multipletests
+import os
 
 def plot_results(correlations, means, std):
     """Plot the calculated data."""
@@ -17,7 +18,7 @@ def plot_results(correlations, means, std):
     plt.tight_layout()
     plt.show()
 
-def assortativity_significance():
+def assortativity_significance(save_results=False):
     """Determine if the difference between a random and scale-free network is statistically significant using the Welch T-test. An FDR correction is used."""    
     data_random = pd.read_csv('experimental_data/assortativity_random_results.csv')
     data_scale = pd.read_csv('experimental_data/assortativity_scale_free_results.csv')
@@ -35,13 +36,24 @@ def assortativity_significance():
     # Apply FDR correction
     p_adjusted = multipletests(p_values, method='fdr_bh')[1]
 
+    results = []
     for i, corr in enumerate(data_random["correlations"]):
-        print(f"Correlation {corr:.1f}: t = {t_values[i]:.3f}, p = {p_values[i]:.5f}, adjusted p = {p_adjusted[i]:.5f}")
+        result = f"Correlation {corr:.1f}: t = {t_values[i]:.3f}, p = {p_values[i]:.5f}, adjusted p = {p_adjusted[i]:.5f}"
+        print(result)
+        results.append(result)
 
     alpha = 0.05
-    significant = p_adjusted < alpha
-    print("\nSignificant differences (p < 0.05) at these correlations:")
-    print(data_random["correlations"][significant].values)
+    significant = data_random["correlations"][p_adjusted < alpha].values
+    result_significant = f"\nSignificant differences (p < 0.05) at these correlations: \n{significant}"
+    print(result_significant)
+
+    if save_results:
+        os.makedirs(os.path.dirname("statistics/assortativity/statis_results"), exist_ok=True)
+        with open("statistics/assortativity/statis_results", "w") as f:
+            f.write("\n".join(results))
+        print(f"Results saved to: statistics/assortativity/statis_results")
+
+
 
 def convert_to_nx(network):
     """Convert network to nx Graph to use built in functions.
@@ -94,7 +106,7 @@ def run_assortativity_experiment(networks, network_type, num_runs, save_results=
             "std": std
         }
         df = pd.DataFrame(dict_results)
-        df.to_csv(f"assortativity_{network_type}_results.csv", index=False)
+        df.to_csv(f"statistics/assortativity/{network_type}_results.csv", index=False)
         print(f'Results are saved in: assortativity_{network_type}_results.csv')
 
     if plot:
