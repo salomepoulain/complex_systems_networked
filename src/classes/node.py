@@ -1,5 +1,4 @@
 import numpy as np
-from collections import OrderedDict
 
 class Node:
     def __init__(self, ID, identity, rng=None):

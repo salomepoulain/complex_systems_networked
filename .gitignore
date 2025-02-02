@@ -57,6 +57,5 @@ src/testTestingRootWkspc/coverageWorkspace/.coverage
 
 #own environment
 myenvsc/
-animations/
-plots/
-networks/
+dummy/
+

@@ -1,10 +1,11 @@
-from src.classes.network import Network
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.patches import Circle
+from collections import defaultdict
+from scipy.stats import ttest_ind_from_stats
 import networkx as nx
 import numpy as np
-from matplotlib.colors import LinearSegmentedColormap
+import powerlaw
 import matplotlib.colors as mcolors
 from PIL import Image, ImageSequence
 import os
@@ -220,6 +221,20 @@ def plot_network_clusters(network, cluster):
     plt.show()
 
 
+def create_distribution(data, num_exp=1):
+    """
+    This function iterates through a list of cascades and extracts the size of the cascade, 
+    the number of times this cascade size occurred and
+    the average polarization of this cascade size. 
+
+    args:
+        data: dictionary of the sizes with their cascade list of political orientations of nodes within that cascade.
+        num_exp: number of runs done.
+    returns:
+        counts: list of frequencies a particular size occured (matched index-wise with size)
+        sizes: list of sizes that occurred
+        avg_polarizations: average polarizaiton of that particular cascade size (matched index-wise with size)
+    """
 def plot_cascade_dist(data):
     """
     Plots cascade sizes and their polarization levels using a stacked scatter plot.
@@ -272,21 +287,30 @@ def plot_cascade_dist_average(data, stadium, largest_size=120, num_exp=1, save=F
     counts = []
     avg_polarizations = []
 
-    # create a custom green-to-red colormap
-    green_to_red = plt.cm.RdYlGn_r
-
+    # values essentially holds the list of the orientation of nodes (+1 for left, -1 for right) within a cascade
     for size, values in data.items():
-        # if size == 1:  # Skip size 1 if necessary
-        #     continue
-        sizes.append(size)  # the cascade size
-        counts.append(len(values))  # number of occurrences (bar height)
-        avg_polarizations.append(np.mean(np.abs(values)))
+        sizes.append(size)  # The cascade size
+        counts.append(len(values))  # Number of occurrences 
+
+        # the polarizations are already weighted by its prevelences
+        polarization_val = np.mean(np.abs(values))
+        
+        if np.isnan(polarization_val):
+            print(f"Warning: NaN detected in mean absolute values for input {values}")
+            polarization_val = 0  # Default to 0 or another fallback value
+        
+
+        avg_polarizations.append(polarization_val)
     counts=np.array(counts, dtype=np.float64)
+
+    #normalize by dividng through number of experiments
     counts/=num_exp
     
-    # normalize polarization for coloring
+    # Normalize polarization for coloring
     colors = [green_to_red(p) for p in avg_polarizations]
 
+    fig, ax = plt.subplots(figsize=(5, 3.5))
+    ax.scatter(sizes, counts, color=colors, edgecolor="black", linewidth=0.5, s=20)
     # create the bar plot
     fig, ax = plt.subplots(figsize=(6.5, 3.5))
     bars = ax.bar(sizes, counts, color=colors, edgecolor="black", linewidth=0.5)
@@ -297,22 +321,60 @@ def plot_cascade_dist_average(data, stadium, largest_size=120, num_exp=1, save=F
     cbar = plt.colorbar(sm, ax=ax)
     cbar.set_label("0:non polarized-1:fully polarized")
     
+    # set scales to log log for powerlaw detectio
     ax.set_yscale("log")
+    ax.set_xscale("log")
+
     # Add labels and title
-    ax.set_title(f"Cascade Size Distribution with Polarization ({num_exp} runs)")
+    ax.set_title(f"Cascade Size Distribution with Polarization (correlation: {correlation})")
     ax.set_xlabel("Cascade Size")
     ax.set_ylabel("Number of Occurrences")
     ax.set_xlim(0, largest_size+1) 
     ax.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.3)
 
-    
     plt.tight_layout()
 
     # save the plot
     if save:
-        plt.savefig(f"plots/cascade_distribution_{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
+        if not averaged: 
+            plt.savefig(f"plots/experiment_results/cascade_distribution/{what_net}/{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
+        else:
+            plt.savefig(f"plots/experiment_results/cascade_distribution/{what_net}/averaged_{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
 
     plt.show()
+
+
+def calculate_average_per_gamma(cas, num_runs): 
+    cascades_before_averaged, cascades_after_averaged = cas
+    values_bef, values_af = defaultdict(), defaultdict()
+    variance_bef, variance_af = defaultdict(), defaultdict()
+    # variance_size_bef, variance_size_af = defaultdict(), defaultdict()
+
+    for key,value in cascades_before_averaged.items():
+        counts_bef, sizes_bef, pol_bef = create_distribution(value, num_runs)
+
+        
+        # weight sizes by their prevelence
+        mean_size_bef = np.average(sizes_bef, weights=counts_bef)
+
+        # the polarization is already weighted by prevelence so is not weighted again
+        mean_pol_bef = np.mean(pol_bef) 
+        values_bef[key] = (mean_size_bef, mean_pol_bef)    
+        size_var_bef = np.average((sizes_bef-mean_size_bef)**2, weights=counts_bef)
+        pol_var_bef = np.average((pol_bef-mean_pol_bef)**2, weights=counts_bef)
+        variance_bef[key] = (size_var_bef, pol_var_bef)
+
+    for key,value in cascades_after_averaged.items():
+        counts_af, sizes_af, pol_af = create_distribution(value, num_runs)
+        mean_size_af = np.average(sizes_af, weights=counts_af)
+        mean_pol_af = np.mean(pol_af) 
+        values_af[key] = (mean_size_af, mean_pol_af)    
+        size_var_af = np.average((sizes_af-mean_size_af)**2, weights=counts_af)
+        pol_var_af = np.average((pol_af-mean_pol_af)**2, weights=counts_af)
+        variance_af[key] = (size_var_af, pol_var_af)
+
+    return values_bef, values_af, variance_bef, variance_af
+
 
 def print_network(network):
     """
@@ -815,3 +877,142 @@ def create_complete_animation(network, cascade_amount):
     merging_gif_name = f"animations/network_animation{cascade_amount}.gif"
     plot_network(network, cascade_amount)
     merge_gifs(input_file, merging_gif_name, output_file)
+
+def plot_cascades_gamma(cas, num_runs, what_net):
+    '''
+    This plot calculates the average cascade size and polarization per correlation value for two networks.
+    allowing for clear visual comparison
+
+    args: 
+    cas-cascade distributions for both networks (along with polarization)
+    num_runs-number of experiments.
+    what_net- "random" (comparing before and after for random), "scale_free" (comparing before after scale_free) 
+    "both" (comparing after scale free vs after random)
+    '''
+    values_bef, values_af, variance_bef, variance_af = calculate_average_per_gamma(cas, num_runs)
+    fig, ax = plt.subplots(figsize=(5,4))
+
+    green_to_red = plt.cm.RdYlGn_r
+    # Normalize polarization for coloring
+    keys_bef = list(values_bef.keys())  # Gamma values (X-axis)
+    sizes_bef = [v[0] for v in values_bef.values()]  # Sizes for Y-axis
+    pol_bef = [v[1] for v in values_bef.values()]  # Polarization for colors
+
+    keys_af = list(values_af.keys())  # Gamma values (X-axis)
+    sizes_af = [v[0] for v in values_af.values()]  # Sizes for Y-axis
+    pol_af = [v[1] for v in values_af.values()]  # Polarization for colors
+
+    #Coloring scheme with polarization
+    norm = plt.Normalize(vmin=0, vmax=1)
+    colors_bef = [green_to_red(norm(p)) for p in pol_bef]
+    colors_af = [green_to_red(norm(p)) for p in pol_af]
+    
+    var_sizes_bef = np.array([variance_bef[k][0] for k in keys_bef])  # Variance for sizes (Before)
+    var_sizes_af = np.array([variance_af[k][0] for k in keys_af])  # Variance for sizes (After)
+
+    #Computing confidence interval with calculated variance
+    sem_sizes_bef = np.sqrt(var_sizes_bef) / np.sqrt(num_runs)
+    sem_sizes_af = np.sqrt(var_sizes_af) / np.sqrt(num_runs)
+    ci_sizes_bef = 1.96 * sem_sizes_bef
+    ci_sizes_af = 1.96 * sem_sizes_af
+
+    sm = plt.cm.ScalarMappable(cmap=green_to_red, norm=plt.Normalize(vmin=0, vmax=1))
+    sm.set_array([])
+    cbar = plt.colorbar(sm, ax=ax)
+    cbar.set_label("0:non polarized-1:fully polarized")
+    
+    
+    # make an errorbar to visualize CI
+    ax.errorbar(keys_bef, sizes_bef, yerr=ci_sizes_bef, color="black", linewidth = 0.8, capsize=2, label="", linestyle="none", zorder=1)
+    ax.errorbar(keys_af, sizes_af, yerr=ci_sizes_af, color="black", linewidth=0.8, capsize=2, label="", linestyle="none", zorder=1)
+
+    # distinct between before after comparison and scale-free vs random comparison
+    if what_net != "both":
+        label1 = "Before"
+        label2 = "After"
+        marker1 = "o"
+        marker2 = "s"
+    else:
+        label1 = "Random"
+        label2 = "Scale-free"
+        marker1 = "v"
+        marker2 = "h"
+
+    # plotting for both networks
+    for x, y, color in zip(keys_bef, sizes_bef, colors_bef):
+        ax.scatter(x, y, color=color, edgecolor="black", linewidths=0.5, marker=marker1, s=50, label="Before" if x == keys_bef[0] else "", zorder=2)
+
+    for x, y, color in zip(keys_af, sizes_af, colors_af):
+        ax.scatter(x, y, color=color, edgecolor="black", linewidths=0.5, marker=marker2, s=50, label="After" if x == keys_af[0] else "", zorder=2)
+    
+    
+    legend_handles = [
+    plt.Line2D([], [], marker=marker1, color="w", markerfacecolor="white", markersize=6, markeredgecolor="black", label=label1),
+    plt.Line2D([], [], marker=marker2, color="w", markerfacecolor="white", markersize=6, markeredgecolor="black", label=label2),
+    ]
+    ax.set_xlabel("News Correlation")
+    ax.set_ylabel("Average Cascade Size")
+    ax.legend(handles=legend_handles)
+
+    # saving plot in destined folder
+    plt.savefig(f"plots/experiment_results/cascade_distribution/{what_net}/averaged_over_gammas.png", dpi=300, bbox_inches='tight')
+    plt.show()
+
+def test_significance(values_bef, values_af, variance_bef, variance_af, num_runs=30):
+    """
+    Perform t-tests on cascade sizes and polarization before vs. after for each gamma value.
+
+    Args:
+        values_bef : Dictionary mapping gamma values to (mean_size, mean_polarization) for before.
+        values_af : Dictionary mapping gamma values to (mean_size, mean_polarization) for after.
+        variance_bef : Dictionary mapping gamma values to (variance_size, variance_polarization) for before.
+        variance_af : Dictionary mapping gamma values to (variance_size, variance_polarization) for after.
+        num_runs : Number of runs per gamma value (default is 30).
+
+    Returns:
+        results : Dictionary mapping gamma values to t-test results for size and polarization.
+    """
+    results = {}
+
+    for gamma in values_bef.keys():
+        mean_size_bef, mean_pol_bef = values_bef[gamma]
+        mean_size_af, mean_pol_af = values_af[gamma]
+        
+        var_size_bef, var_pol_bef = variance_bef[gamma]
+        var_size_af, var_pol_af = variance_af[gamma]
+
+        # Compute t-test for cascade sizes
+        t_size, p_size = ttest_ind_from_stats(mean1=mean_size_bef, std1=np.sqrt(var_size_bef), nobs1=num_runs,
+                                              mean2=mean_size_af, std2=np.sqrt(var_size_af), nobs2=num_runs, 
+                                              equal_var=False) 
+
+        # Compute t-test for polarization
+        t_pol, p_pol = ttest_ind_from_stats(mean1=mean_pol_bef, std1=np.sqrt(var_pol_bef), nobs1=num_runs,
+                                            mean2=mean_pol_af, std2=np.sqrt(var_pol_af), nobs2=num_runs, 
+                                            equal_var=False)  
+
+        results[gamma] = {
+            "t_size": t_size, "p_size": p_size,
+            "t_pol": t_pol, "p_pol": p_pol
+        }
+
+    return results
+
+
+def statistics_cascades(cas_sf, cas_rand, num_runs):
+    cascades_before_averaged_sf, cascades_after_averaged_sf = cas_sf
+    cascades_before_averaged_rand, cascades_after_averaged_rand = cas_rand
+    which_cas = [(cascades_before_averaged_sf, cascades_after_averaged_sf), (cascades_before_averaged_rand, cascades_after_averaged_rand), (cascades_after_averaged_rand, cascades_after_averaged_sf)]
+
+    for i, what in enumerate(["scale_free", "random", "both"]):
+        values_bef, values_af, variance_bef, variance_af = calculate_average_per_gamma(which_cas[i], num_runs)
+        results = test_significance(values_bef, values_af, variance_bef, variance_af, num_runs)
+        output_file = f"statistics/dummy/cascades/results_bef_af_{what}.txt"
+
+        with open(output_file, "w") as f:
+            f.write(f"Statistical significance for {what} network type (cascade experiments)\n")
+            for gamma, res in results.items():
+                f.write(f"Gamma = {gamma}:\n")
+                f.write(f"  Size: t = {res['t_size']:.3f}, p = {res['p_size']:.3g}\n")
+                f.write(f"  Polarization: t = {res['t_pol']:.3f}, p = {res['p_pol']:.3g}\n")
+                f.write("--------------------------------------------------------\n")
