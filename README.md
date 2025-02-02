@@ -40,7 +40,7 @@ highly correlated news means a value of 1 and the opposite means a value of -1.
 - Each node will have atleast **m** connections and this property is mainted during the network adjustment process, to keep sacle-free properties throughout the simulation.
 
 ## Experimentation
-#### For a range of correlation values (-1.0, -0.8, -0.6, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0), three metrics can be measured to determine polarization within the network:
+#### For a range of correlation values [-1.0, -0.8, -0.6, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0], three metrics can be measured to determine polarization within the network:
 #### 1. Cascade Sizes
 A cascade forms when activated nodes sequentially trigger their neighbors, and cascades merge if they share one or more common nodes. The polarization of a cascade (how imbalanced the proportion of political identities is within it) serves as a metric for overall network polarization.
 
@@ -90,9 +90,8 @@ complex_systems_networked/
 │       │-- scale_free/
 │
 │-- networks/                      # Final State Network data files 
-│   │-- random_2/
-│   │-- scale_free/
-│   │-- scale_free_2/
+│   │-- random/ *
+│   │-- scale_free/ *
 │
 │-- plots                          # Plots of experiment results    
 │   │-- experiment_results/
@@ -100,7 +99,7 @@ complex_systems_networked/
 │           │-- both/
 │           │-- random/
 │           │-- scale_free/
-│-- src/                           # Source code directory
+│-- src/                           # Source code directory, all functions and classes
 │   │-- classes/
 │   │   │-- network.py
 │   │   │-- node.py
@@ -113,10 +112,7 @@ complex_systems_networked/
 │   │-- assortativity/
 │   │-- cascades/
 ```
-`Networks/` contains folders 
-
-## Dependencies
-All dependencies are listed in `requirements.txt`. Ensure you install them before running the project.
+[*] `networks/*` contains for each value of ***correlation*** the final configuration of the network (`network_#.txt`). Each generated network has been implemented with its own seed. Using the functions in `main.ipynb`, the network can be re-generated and read from these files. 
 
 ## References
 
