@@ -7,6 +7,8 @@ import networkx as nx
 import numpy as np
 import powerlaw
 from matplotlib.patches import Rectangle
+from PIL import Image, ImageSequence
+import os
 
 def initial_graph(network, clusters=[]):
     """
