@@ -7,7 +7,38 @@ from powerlaw import Fit
 import bisect
 
 class _Network:
+    """
+    This function is the parent class for the RandomNetwork and ScaleFreeNetwork classes.
+    A network of nodes, with a specified number of nodes and a correlation between the two media hubs.
+    The network can be initialized as a random network or a scale-free network.
+    The network can be updated by responding to news intensities and adjusting the network accordingly.    
+    """
+
     def __init__(self, num_nodes=200, mean=0, correlation=-1, starting_distribution=0.5, update_fraction=0.2, seed=None):
+        """
+        Initialize the network with a specified number of nodes, mean, correlation, starting distribution, update fraction, and seed.
+
+        Args:
+            num_nodes (int): The number of nodes in the network.
+            mean (float): The mean of the news intensities.
+            correlation (float): The correlation between the two media hubs.
+            starting_distribution (float): The starting distribution of the nodes.
+            update_fraction (float): The fraction of nodes to update in each round.
+            seed (int): The seed for the random number generator.
+
+        Attributes:
+            iterations (int): The number of iterations the network has been updated.
+            activated (set): The set of activated nodes.
+            rng (np.random.Generator): The random number generator.
+            alterations (int): The number of alterations made to the network in each round.
+            new_edge (list): The list of new edges added to the network.
+            removed_edge (list): The list of edges removed from the network.
+            nodesL (list): The list of nodes in the left media hub 
+            nodesR (list): The list of nodes in the right media hub.
+            connections (set): The set of connections between nodes.
+            all_nodes (list): The list of all nodes in the network.
+        """
+
         self.iterations = 0
         self.correlation = correlation 
         self.mean = mean
@@ -15,7 +46,6 @@ class _Network:
 
         self.rng = np.random.default_rng(seed)
 
-        # for visualization
         self.alterations = 0
         self.new_edge = []
         self.removed_edge = []
@@ -28,11 +58,20 @@ class _Network:
         self.all_nodes = self.nodesL + self.nodesR
     
     def clean_network(self):
+        """
+        Clean the network by removing all connections between nodes.    
+        """
         self.alterations = 0
         self.activated = set()
 
     def add_connection(self, node1, node2):
-        """Add an undirected connection between two nodes (if not already present)."""
+        """
+        Add an undirected connection between two nodes (if not already present).
+
+        Args:
+            node1 (Node): The first node to connect.
+            node2 (Node): The second node to connect.
+        """
         if node1 != node2: 
             node1.add_edge(node2)
             node2.add_edge(node1)
@@ -40,7 +79,13 @@ class _Network:
             self.connections.add((node2, node1))
 
     def remove_connection(self, node1, node2):
-        """Remove the connection between two nodes if it exists."""
+        """
+        Remove the connection between two nodes if it exists.
+
+        Args:
+            node1 (Node): The first node to disconnect.
+            node2 (Node): The second node to disconnect.
+        """
         if node1 != node2:
             node1.remove_edge(node2)
             node2.remove_edge(node1)
@@ -50,7 +95,9 @@ class _Network:
     def generate_news_significance(self):
         """
         Generate news signifiance for both hubs based on their correlation.
-        :return: Normalized signifiance (sL, sR) for the left and right media hubs.
+        
+        Returns:
+            Tuple of news significance for the left and right media hubs.
         """
         covar = [[1, self.correlation ], [self.correlation, 1]]
         stims = self.rng.multivariate_normal(mean = [self.mean, self.mean], cov = covar, size = 1)
@@ -61,6 +108,15 @@ class _Network:
         """
         Continue responding to the news intensities until a steady state is reached (no changes in activation state).
         This is the cascade event.
+
+        Args:
+            sL: Normalized significance for the left media hub.
+            sR: Normalized significance for the right media hub.
+            all_samplers: Tuple of sets of samplers for the left and right media hubs.
+            analyze: Boolean flag to indicate whether to analyze the network.
+        
+        Returns:
+            List of activated nodes in each round.
         """
         self.activated=set()
         steady_state_reached = True
@@ -100,7 +156,15 @@ class _Network:
             union_to_consider = new_to_consider
 
     def analyze_network(self):
+        """
+        Analyze the network by identifying cascades and their properties.
 
+        Returns:
+            Tuple of the following: 
+            - List of merged cascades (sets of nodes)
+            - List of cascade sizes
+            - List of polarized fractions in each cascade
+        """
         self.alterations = 0
         sL, sR = self.generate_news_significance()
 
@@ -150,6 +214,12 @@ class _Network:
         return merged, size_distiribution_cascades, fractions_polarized
     
     def pick_samplers(self):
+        """
+        Pick samplers for the left and right media hubs.
+
+        Returns:
+            Tuple of sets of samplers for the left and right media hubs.
+        """
         
         all_samplers_L, all_samplers_R = set(), set()
         # for node in self.rng.choice(list(self.all_nodes), int(len(self.all_nodes) * self.update_fraction), replace=False):
@@ -167,7 +237,7 @@ class _Network:
 
     def update_round(self):
         """
-        Perform a single update round.
+        Update the network for one round by responding to news intensities and adjusting the network accordingly.
         """
         self.iterations +=1
 
@@ -190,10 +260,53 @@ class _Network:
 
     def give_alterations(self):
         return self.alterations
+    
+    def run_cascade_for_visuals(self, sL, sR):
+        """
+        Continue responding to the news intensities until a steady state is reached (no changes in activation state).
+        This is the cascade event.
 
+        Args:
+            sL: Normalized significance for the left media hub.
+            sR: Normalized significance for the right media hub.
 
+        Returns:
+            List of activated nodes in each round.
+        """
+        activated = []
+        steady_state_reached = False
+        while not steady_state_reached:
+            round = []
+            steady_state_reached = True  
+            for nodeL in self.nodesL:
+                if nodeL.respond_for_visuals(sL):
+                    round.append(nodeL.ID)
+                    self.activated.add(nodeL)
+                    steady_state_reached = False
+            for nodeR in self.nodesR:
+                if nodeR.respond_for_visuals(sR):
+                    round.append(nodeR.ID)
+                    self.activated.add(nodeR)
+                    steady_state_reached = False
+            
+            activated.append(round)
+        
 class RandomNetwork(_Network):
+    """
+    This class represents a random network of nodes.
+    It inherits from the _Network class and initializes the network by connecting all nodes with a probability `p`.
+    """
+
     def __init__(self, p=0.1, k=0, **kwargs):
+        """
+        Initialize the network by connecting all nodes with a probability `p`.
+        If `p` is very low, the network will resemble a regular network with fixed degree `k`.
+        If `p` is high, it will resemble an Erdős–Rényi random network.
+
+        Args:
+            p (float): The probability of connecting two nodes.
+            k (int): The degree of the network.
+        """
         super().__init__(**kwargs)
         self.p = p
         self.k = k
@@ -202,11 +315,8 @@ class RandomNetwork(_Network):
 
     def initialize_network(self):
         """
-        Initialize the network by connecting all nodes with a probability `p`.
-        If `p` is very low, the network will resemble a regular network with fixed degree `k`.
-        If `p` is high, it will resemble an Erdős–Rényi random network.
+        Initialize the network
         """
-
         if self.k >0:
             print(f"A Wattz-Strogatz network is initialized with beta value {self.p} and regular network degree {self.k}, and correlation {self.correlation}")
             # If degree `k` is provided, ensure each node has exactly `k` connections.
@@ -239,12 +349,13 @@ class RandomNetwork(_Network):
     def network_adjustment(self, sL, sR):
         """
         Adjust the network by breaking ties and adding new connections.
+
+        Args:
+            sL: Normalized significance for the left media hub.
+            sR: Normalized significance for the right media hub.
         """
         self.new_edge = []
         self.removed_edge = []
-
-        # can maybe be done more efficiently if done dynamically
-        # active_nodes = {n for n in self.all_nodes if n.activation_state}  # Set of active nodes
 
         if len(self.activated)>0:
             # Select an active node involved in the cascade
@@ -286,7 +397,19 @@ class RandomNetwork(_Network):
 
 
 class ScaleFreeNetwork(_Network):
+    """
+    This class represents a scale-free network of nodes.
+    It inherits from the _Network class and initializes the network by connecting nodes in a scale-free manner.
+    """
     def __init__(self, m=2, plot=False, **kwargs):
+        """
+        Initialize the network by connecting nodes in a scale-free manner.
+        The network is initialized with `m` connections for each new node.
+
+        Args:
+            m (int): The number of connections for each new node.
+            plot (bool): Boolean flag to indicate whether to plot the degree distribution.
+        """
         super().__init__(**kwargs)
         self.m = m
         self.plot = plot

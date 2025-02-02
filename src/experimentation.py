@@ -7,12 +7,32 @@ from multiprocessing import Pool
 import numpy as np
 from collections import defaultdict
 
+
 def get_network_properties(network, seed):
     """
     Extracts and returns the properties of a network for analysis or storage.
     Supports RandomNetwork and ScaleFreeNetwork.
     Stores it in a dictionary, values can be accessed with the corresponding keys. 
     Useful for effectively extracting network properties. 
+
+    Args:
+        network (object): The network object to extract properties from.
+        seed (int): The seed used for network generation.
+
+    Returns:
+        dict: A dictionary containing the properties of the network:
+        - Number of Nodes
+        - Number of Edges
+        - Correlation
+        - Seed
+        - Update Fraction
+        - Connections
+        - Nodes
+        - P value (for RandomNetwork)
+        - Degree (k) (for RandomNetwork)
+        - Initial Edges (m) (for ScaleFreeNetwork)
+        - Total Degree (for ScaleFreeNetwork)
+        - Degree Distribution (for ScaleFreeNetwork)
     """
     corr = network.correlation
     node_info = []
@@ -74,7 +94,6 @@ def parallel_network_generation(whichrun, num_nodes, seed, corr, iterations, upd
         - Saves network properties to a file in a predefined directory.
         - Prints the number of alterations made during simulation.
     """
-    
     seed += whichrun
     # Dynamically select the network class
     if network_type == "random":
@@ -107,6 +126,7 @@ def parallel_network_generation(whichrun, num_nodes, seed, corr, iterations, upd
         file.write("==================\n")
         for key, value in network_properties.items():
             file.write(f"{key}: {value}\n")
+
 
 def generate_networks(correlations, initial_seeds, num_nodes, iterations, how_many, update_fraction, starting_distribution, p, network_sort="random", m=0):
     """
@@ -191,6 +211,7 @@ def read_network_properties(file_path):
             properties[key] = value
     return properties
 
+
 def read_and_load_networks(num_runs, num_nodes, update_fraction, average_degree, starting_distribution, correlations, whichtype):
     """
     Reads and loads networks from stored files.
@@ -239,6 +260,7 @@ def read_and_load_networks(num_runs, num_nodes, update_fraction, average_degree,
             networks[(corr, i)] = (before_network, after_network)
 
     return networks
+
 
 def read_and_load_network_sub(sub_id, corr, num_nodes, update_fraction, average_degree, starting_distribution, whichtype):
     """
@@ -340,7 +362,6 @@ def create_data(iters, network):
     return data, average_data
     
 
-
 def parallel_cascade_experiment(par):
     """
     Runs a single cascade experiment in parallel.
@@ -380,7 +401,6 @@ def parallel_cascade_experiment(par):
     return (before_data, after_data, largest_size), (average_before_data, average_after_data, largest_size_averaged)
 
 
-PROCESSES = 10
 def multiple_correlations_par(corr, num_exp, num_nodes, update_fraction, average_degree, starting_distribution, what_net):
     '''
     This function is the parallelized framework for cascade distribution calculation. 
@@ -431,7 +451,6 @@ def multiple_correlations_par(corr, num_exp, num_nodes, update_fraction, average
         for size, polarizations in average_after_data.items():
             col_of_all_after_averaged[size].extend(polarizations)
 
-    
     print(f"Finished all cascade experiments for correlation {corr}")
     return (
         (collection_of_all_before,
@@ -442,8 +461,8 @@ def multiple_correlations_par(corr, num_exp, num_nodes, update_fraction, average
     )
 
 
+PROCESSES = 10
 if __name__ == "__main__":
-
     """
     Running parallel code in main to get the feedback of the sub-processes. (debugging purposes)
     Mimics the code run in the 'main.ipynb' file 
@@ -462,8 +481,6 @@ if __name__ == "__main__":
     cascades_before = defaultdict(lambda: defaultdict(list))
     cascades_after = defaultdict(lambda: defaultdict(list))
     save=True
-
-
 
     for corr in correlations: 
         print(f"starting experimentation for correlation: {corr}")

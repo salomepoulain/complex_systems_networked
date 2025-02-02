@@ -3,8 +3,18 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from collections import defaultdict
 
+
 def plot_results(x_data, mean_same, std_same, mean_diff, std_diff):
-    """Plot the change in social ties."""
+    """
+    Plot the change in social ties.
+
+    Args:
+        x_data (list): list of news correlations
+        mean_same (list): list of means for same ideology
+        std_same (list): list of standard deviations for same ideology
+        mean_diff (list): list of means for different ideology
+        std_diff (list): list of standard deviations for different ideology
+    """
     plt.figure(figsize=(6,5), dpi=500)
     plt.scatter(x_data, mean_same, color='navy', label='Same Ideology')
     plt.fill_between(x_data, mean_same - std_same, mean_same + std_same, color='navy', alpha=0.5)
@@ -18,6 +28,7 @@ def plot_results(x_data, mean_same, std_same, mean_diff, std_diff):
     plt.legend()
     plt.tight_layout()
     plt.show()
+
 
 def gather_social_ties(network):
     """Gathers the number of L and R connections for all nodes.
@@ -39,6 +50,7 @@ def gather_social_ties(network):
         social_ties[node.ID] = (identity, connection_L, connection_R)
     
     return social_ties
+
 
 def calculate_net_gain_loss(initial, final):
     """Calculates the difference in L and R connections after the update rounds.
@@ -65,6 +77,7 @@ def calculate_net_gain_loss(initial, final):
         same_ideologies.append(same_ideology)
 
     return np.mean(same_ideologies), np.mean(diff_ideologies)
+
 
 def run_social_ties_experiment(networks, network_type, num_runs, save_results=False):
     """Calculates and plots the net change in social ties between the initial and final network as a function of the news correlation.

@@ -7,8 +7,16 @@ from scipy.stats import norm
 from statsmodels.stats.multitest import multipletests
 import os
 
+
 def plot_results(correlations, means, std):
-    """Plot the calculated data."""
+    """
+    Plot the calculated data.
+    
+    Args:
+        correlations (list): list of news correlations
+        means (list): list of means
+        std (list): list of standard deviations
+    """
     plt.figure(figsize=(6, 5), dpi=500)
     plt.scatter(correlations, means, color='navy')
     plt.fill_between(correlations, means - std, means + std, color='navy', alpha=0.5)
@@ -18,8 +26,16 @@ def plot_results(correlations, means, std):
     plt.tight_layout()
     plt.show()
 
+
 def assortativity_significance(save_results=False):
-    """Determine if the difference between a random and scale-free network is statistically significant using the Welch T-test. An FDR correction is used."""    
+    """
+    Determine if the difference between a random and scale-free network is statistically significant using the Welch T-test. 
+    An FDR correction is used.
+    
+    Args:
+        save_results (bool, optional): Save the results to a file. Defaults to False.
+
+    """    
     data_random = pd.read_csv('statistics/assortativity/random_results.csv')
     data_scale = pd.read_csv('statistics/assortativity/scale_free_results.csv')
 
@@ -55,9 +71,9 @@ def assortativity_significance(save_results=False):
         print(f"Results saved to: statistics/assortativity/statis_results")
 
 
-
 def convert_to_nx(network):
-    """Convert network to nx Graph to use built in functions.
+    """
+    Convert network to nx Graph to use built in functions.
 
     Args:
         network (set): network to be converted.
@@ -77,7 +93,8 @@ def convert_to_nx(network):
 
 
 def run_assortativity_experiment(networks, network_type, num_runs, save_results=False, plot=True):
-    """Calculates and plots the assortativity as a function of news correlation.
+    """
+    Calculates and plots the assortativity as a function of news correlation.
 
     Args:
         networks (dict): all generated networks
@@ -112,4 +129,3 @@ def run_assortativity_experiment(networks, network_type, num_runs, save_results=
 
     if plot:
         plot_results(correlations, means, conf_int)
-

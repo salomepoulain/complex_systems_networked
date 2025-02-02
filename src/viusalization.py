@@ -10,6 +10,7 @@ from matplotlib.patches import Rectangle
 from PIL import Image, ImageSequence
 import os
 
+
 def initial_graph(network, clusters=[]):
     """
     Create the initial graph and assign node colors.
@@ -25,6 +26,7 @@ def initial_graph(network, clusters=[]):
     graph.add_nodes_from(range(len(network.all_nodes)))
 
     return graph, colors
+
 
 def self_sort(frame, network, graph, colors, pos, pos_target, ax, seed):
     """
@@ -146,6 +148,7 @@ def self_sort(frame, network, graph, colors, pos, pos_target, ax, seed):
     # Return all drawn artists
     return [nodes]
 
+
 def plot_network(network):
     """
     Plot and animate the network.
@@ -182,6 +185,7 @@ def plot_network(network):
     ani.save("animations/network_animation10.gif", fps=15,  writer="ffmpeg")
     plt.show()
 
+
 def plot_network_clusters(network, cluster):
     """
     Plots a network with clusters using a force-directed layout.
@@ -212,6 +216,7 @@ def plot_network_clusters(network, cluster):
     ax.set_title(f"animating cluster connectivity", fontsize=14)
 
     plt.show()
+
 
 def create_distribution(data, num_exp=1):
     """
@@ -269,7 +274,6 @@ def plot_cascade_power_law(data, stadium, what_net, largest_size=120, num_exp=30
         averaged: in case averaged -> calculates the average size per sampled individual.If not, calculates dist of all cascades
 
     """
-    
     # recalculating the full distribution and selecting the relevant cascade sizes (>=2)
     counts, sizes, _ = create_distribution(data, num_exp)
     sizes = np.array(sizes)
@@ -321,6 +325,7 @@ def plot_cascade_power_law(data, stadium, what_net, largest_size=120, num_exp=30
 
     plt.show()
 
+
 def plot_cascade_animation(cascades_before, cascades_after, correlations, largest_sizes, num_exp, what_net, save=False, averaged=True):
     """
     Create an animated visualization of cascade distributions over multiple correlation values.
@@ -332,7 +337,6 @@ def plot_cascade_animation(cascades_before, cascades_after, correlations, larges
         num_exp : Number of experiments for normalization.
         save : If True, saves the animation as a .gif file.
     """
-
     fig, (ax1, ax2) = plt.subplots(2, 1,figsize=(7, 5), sharex=True)
 
     # **Initialize bar objects**
@@ -349,7 +353,6 @@ def plot_cascade_animation(cascades_before, cascades_after, correlations, larges
 
     bars1 = ax1.bar(sizes1, initial_counts1, color="gray", edgecolor="black", linewidth=0.5, width=wid)
     bars2 = ax2.bar(sizes2, initial_counts2, color="gray", edgecolor="black", linewidth=0.5, width=wid)
-
 
     # **Create a fixed colorbar (Do NOT recreate it in every frame)**
     sm = plt.cm.ScalarMappable(cmap=plt.cm.RdYlGn_r, norm=plt.Normalize(vmin=0, vmax=1))
@@ -421,6 +424,7 @@ def plot_cascade_animation(cascades_before, cascades_after, correlations, larges
     else:
         plt.show()
 
+
 def plot_cascade_dist_average(data, stadium, what_net, largest_size=120, num_exp=30, save=False, correlation=0, averaged=True):
     """
     Plot a distribution of cascade sizes with dots representing the number of occurrences
@@ -436,7 +440,7 @@ def plot_cascade_dist_average(data, stadium, what_net, largest_size=120, num_exp
         averaged: in case averaged -> calculates the average size per sampled individual.If not, calculates dist of all cascades
 
     """
-    # # Create a custom green-to-red colormap
+    # Create a custom green-to-red colormap
     green_to_red = plt.cm.RdYlGn_r
     counts, sizes, avg_polarizations = create_distribution(data, num_exp)
     
@@ -521,7 +525,6 @@ def print_network(network):
     Args:
         network: The network object to visualize.
     """
-
     color_map = ['lightblue'] * len(network.nodesL) + ['#FF6666'] * len(network.nodesR)
     graph = nx.Graph()
     graph.add_nodes_from(range(len(network.all_nodes)))
@@ -529,8 +532,6 @@ def print_network(network):
     for connection in network.connections:
         graph.add_edge(connection[0].ID, connection[1].ID)
     
-
-
     # Set positions and draw the graph
     plt.figure(figsize=(16,8))
     pos = nx.kamada_kawai_layout(graph, scale=0.6)
@@ -650,7 +651,6 @@ def plot_cascades_gamma(cas, num_runs, what_net):
     for x, y, color in zip(keys_af, sizes_af, colors_af):
         ax.scatter(x, y, color=color, edgecolor="black", linewidths=0.5, marker=marker2, s=50, label="After" if x == keys_af[0] else "", zorder=2)
     
-    
     legend_handles = [
     plt.Line2D([], [], marker=marker1, color="w", markerfacecolor="white", markersize=6, markeredgecolor="black", label=label1),
     plt.Line2D([], [], marker=marker2, color="w", markerfacecolor="white", markersize=6, markeredgecolor="black", label=label2),
@@ -662,6 +662,7 @@ def plot_cascades_gamma(cas, num_runs, what_net):
     # saving plot in destined folder
     plt.savefig(f"plots/experiment_results/cascade_distribution/{what_net}/averaged_over_gammas.png", dpi=300, bbox_inches='tight')
     plt.show()
+
 
 def test_significance(values_bef, values_af, variance_bef, variance_af, num_runs=30):
     """
@@ -777,6 +778,7 @@ def create_animation(network, cascade_amount):
             second = f"animations/full_cascade{i+1}.gif" 
             merge_gifs(first, second, second)
 
+
 def merge_gifs(gif1_path, gif2_path, output_path):
     """
     merge two gifs
@@ -809,6 +811,7 @@ def merge_gifs(gif1_path, gif2_path, output_path):
         duration=merged_durations,  
         loop=0 
     )
+
 
 def merging_gif(network1, network2, nodes_amount_left, nodes_amount_right, i, average_right, average_left, iterations, alterations):
     """
@@ -849,6 +852,7 @@ def merging_gif(network1, network2, nodes_amount_left, nodes_amount_right, i, av
     
     ani.save(f"animations/merging{i}.gif", fps=15, writer="ffmpeg")
     plt.show()
+
 
 def update_for_gif(frame, graph, network1, network2, pos, pos_target, ax, colors, average_right, average_left, iterations, alterations):
     """
@@ -893,7 +897,6 @@ def update_for_gif(frame, graph, network1, network2, pos, pos_target, ax, colors
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_frame_on(False)
-
 
     # add title
     ax.text(
@@ -999,6 +1002,7 @@ def plot_cascade(network, animation_number):
 
     return old_network_connections, network.connections, len(network.nodesL), len(network.nodesR), change, average_right, average_left, iterations, alterations
 
+
 def simulate_cascade(network):
     """
     This function can be called to simulate one single cascade
@@ -1036,6 +1040,7 @@ def simulate_cascade(network):
 
     return sL, sR, activated, inactive_samplers
 
+
 def network_adjustment_after_cascade(network, sL, sR):
     """
     This function can be called to simulated a network adjustment after having simulated a cascade
@@ -1054,6 +1059,7 @@ def network_adjustment_after_cascade(network, sL, sR):
     new_edge = tuple(network.new_edge)
 
     return removed_edge, new_edge
+
 
 def update(frame, graph, pos, activated, active_color_map, color_palette, node_colors, ax, removed_edge, new_edge, inactive_samplers, network):
     """
