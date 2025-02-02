@@ -7,6 +7,7 @@ from multiprocessing import Pool
 import numpy as np
 from collections import defaultdict
 
+PROCESSES = 10
 
 def get_network_properties(network, seed):
     """
@@ -104,7 +105,7 @@ def parallel_network_generation(whichrun, num_nodes, seed, corr, iterations, upd
         raise ValueError(f"Unsupported network type: {network_type}")
 
     # Prepare the output directory
-    output_folder = f"networks/dummy/{network_type}_2/{corr}" 
+    output_folder = f"networks/dummy/{network_type}/{corr}" 
     output_filename = f"network_{whichrun}.txt"  
     output_path = os.path.join(output_folder, output_filename)
     os.makedirs(output_folder, exist_ok=True)
@@ -236,7 +237,7 @@ def read_and_load_networks(num_runs, num_nodes, update_fraction, average_degree,
     networks = defaultdict(tuple)
     for corr in correlations:
         for i in range(num_runs):
-            network_properties = read_network_properties(f"networks/{whichtype}_2/{corr}/network_{i}.txt")
+            network_properties = read_network_properties(f"networks/{whichtype}/{corr}/network_{i}.txt")
             seedje = network_properties["Seed"]
             search_nodes = defaultdict(Node)
 
@@ -285,7 +286,7 @@ def read_and_load_network_sub(sub_id, corr, num_nodes, update_fraction, average_
     """
     p = average_degree/(num_nodes-1) 
 
-    network_properties = read_network_properties(f"networks/{whichtype}_2/{corr}/network_{sub_id}.txt")
+    network_properties = read_network_properties(f"networks/{whichtype}/{corr}/network_{sub_id}.txt")
     seedje = network_properties["Seed"]
     search_nodes = defaultdict(Node)
 
@@ -402,19 +403,19 @@ def parallel_cascade_experiment(par):
 
 
 def multiple_correlations_par(corr, num_exp, num_nodes, update_fraction, average_degree, starting_distribution, what_net):
-    '''
+    """
     This function is the parallelized framework for cascade distribution calculation. 
     Every sub-process reads in a network corresponding with a correlation value and returns a cascade distribution. 
     All the distributions returned are combined. 
 
-    args:
+    Args:
         corr: correlation value
         num_exp: the number of experiments run
         num_nodes: the number of nodes within a network
         update_fraction: number of nodes being sampled (possibly activated by news)
         starting: fraction of network left-oriented/right oriented
         what_net: which network topology is used (scale_free/random)
-    '''
+    """
     # datastructures to save data
     number_of_iters = 10000
     collection_of_all_before = defaultdict(list)
@@ -459,38 +460,3 @@ def multiple_correlations_par(corr, num_exp, num_nodes, update_fraction, average
         (largest_size_of_all,
         largest_size_of_all_averaged),
     )
-
-
-PROCESSES = 10
-if __name__ == "__main__":
-    """
-    Running parallel code in main to get the feedback of the sub-processes. (debugging purposes)
-    Mimics the code run in the 'main.ipynb' file 
-    """
-    correlations = np.linspace(-1, 1, 11)
-    correlations = np.round(correlations, 1)
-    initial_seeds = np.linspace(13, 1600, 11)
-    num_runs = 30
-    num_nodes = 200
-    update_fraction = 0.1
-    average_degree = 8
-    starting_distribution = 0.5     # L / R ratio (niet per se nodig maar kan misschien leuk zijn om te varieern)
-    p = average_degree/(num_nodes-1) 
-    updates = 300000
-    # all_networks = read_and_load_networks(num_runs, num_nodes, update_fraction, average_degree, starting_distribution, correlations)
-    cascades_before = defaultdict(lambda: defaultdict(list))
-    cascades_after = defaultdict(lambda: defaultdict(list))
-    save=True
-
-    for corr in correlations: 
-        print(f"starting experimentation for correlation: {corr}")
-        print("-----------------------------------------------")
-
-        (before_after, before_after_averaged, largest_sizes) = multiple_correlations_par(corr, num_runs, num_nodes, update_fraction, average_degree, starting_distribution, "random")
-        (collection_of_all_before, collection_of_all_after) = before_after
-        (coll_of_all_before_averaged, coll_of_all_after_averaged) = before_after_averaged
-        (largest_size_of_all, largest_size_of_all_averaged) = largest_sizes
-    
-        
-        cascades_before[corr] = collection_of_all_before
-        cascades_after[corr] = collection_of_all_after

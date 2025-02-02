@@ -95,6 +95,8 @@ complex_systems_networked/
 │
 │-- plots                          # Plots of experiment results    
 │   │-- experiment_results/
+│       │-- assortativity/
+│       │-- social_ties/
 │       │-- cascade_distribution/
 │           │-- both/
 │           │-- random/
