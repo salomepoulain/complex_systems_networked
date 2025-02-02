@@ -232,9 +232,9 @@ def create_distribution(data, num_exp=1):
         # the polarizations are already weighted by its prevelences
         polarization_val = np.mean(np.abs(values))
         
-        if np.isnan(mean_abs_value):
+        if np.isnan(polarization_val):
             print(f"Warning: NaN detected in mean absolute values for input {values}")
-            mean_abs_value = 0  # Default to 0 or another fallback value
+            polarization_val = 0  # Default to 0 or another fallback value
         
 
         avg_polarizations.append(polarization_val)
@@ -409,7 +409,7 @@ def plot_cascade_animation(cascades_before, cascades_after, correlations, larges
 
     # Save or display animation
     if save:
-        ani.save(f"animations/cascade_distribution/{what_net}/animation_combination.gif", writer="ffmpeg", fps=1.5, dpi=300)
+        ani.save(f"animations/cascade_distribution/dummy/{what_net}/animation_combination.gif", writer="ffmpeg", fps=1.5, dpi=300)
     else:
         plt.show()
 
