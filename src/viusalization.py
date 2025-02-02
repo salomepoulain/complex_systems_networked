@@ -1,8 +1,6 @@
-from src.classes.network import RandomNetwork, ScaleFreeNetwork
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.patches import Circle
-from matplotlib.colors import LinearSegmentedColormap
 from collections import defaultdict
 from scipy.stats import ttest_ind_from_stats
 import networkx as nx
@@ -309,9 +307,9 @@ def plot_cascade_power_law(data, stadium, what_net, largest_size=120, num_exp=30
     # save the plot
     if save:
         if not averaged: 
-            plt.savefig(f"plots/cascade_distribution/{what_net}/powerlaw_{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
+            plt.savefig(f"plots/experiment_results/cascade_distribution/{what_net}/powerlaw_{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
         else:
-            plt.savefig(f"plots/cascade_distribution/{what_net}/powerlaw_{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
+            plt.savefig(f"plots/experiment_results/cascade_distribution/{what_net}/powerlaw_{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
 
     plt.show()
 
@@ -462,9 +460,9 @@ def plot_cascade_dist_average(data, stadium, what_net, largest_size=120, num_exp
     # save the plot
     if save:
         if not averaged: 
-            plt.savefig(f"plots/cascade_distribution/{what_net}/{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
+            plt.savefig(f"plots/experiment_results/cascade_distribution/{what_net}/{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
         else:
-            plt.savefig(f"plots/cascade_distribution/{what_net}/averaged_{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
+            plt.savefig(f"plots/experiment_results/cascade_distribution/{what_net}/averaged_{stadium}_{correlation}.png", dpi=300, bbox_inches='tight')
 
     plt.show()
 
@@ -638,7 +636,7 @@ def plot_cascades_gamma(cas, num_runs, what_net):
     ax.legend(handles=legend_handles)
 
     # saving plot in destined folder
-    plt.savefig(f"plots/cascade_distribution/{what_net}/averaged_over_gammas.png", dpi=300, bbox_inches='tight')
+    plt.savefig(f"plots/experiment_results/cascade_distribution/{what_net}/averaged_over_gammas.png", dpi=300, bbox_inches='tight')
     plt.show()
 
 def test_significance(values_bef, values_af, variance_bef, variance_af, num_runs=30):
@@ -680,3 +678,22 @@ def test_significance(values_bef, values_af, variance_bef, variance_af, num_runs
         }
 
     return results
+
+
+def statistics_cascades(cas_sf, cas_rand, num_runs):
+    cascades_before_averaged_sf, cascades_after_averaged_sf = cas_sf
+    cascades_before_averaged_rand, cascades_after_averaged_rand = cas_rand
+    which_cas = [(cascades_before_averaged_sf, cascades_after_averaged_sf), (cascades_before_averaged_rand, cascades_after_averaged_rand), (cascades_after_averaged_rand, cascades_after_averaged_sf)]
+
+    for i, what in enumerate(["scale_free", "random", "both"]):
+        values_bef, values_af, variance_bef, variance_af = calculate_average_per_gamma(which_cas[i], num_runs)
+        results = test_significance(values_bef, values_af, variance_bef, variance_af, num_runs)
+        output_file = f"statistics/dummy/cascades/results_bef_af_{what}.txt"
+
+        with open(output_file, "w") as f:
+            f.write(f"Statistical significance for {what} network type (cascade experiments)\n")
+            for gamma, res in results.items():
+                f.write(f"Gamma = {gamma}:\n")
+                f.write(f"  Size: t = {res['t_size']:.3f}, p = {res['p_size']:.3g}\n")
+                f.write(f"  Polarization: t = {res['t_pol']:.3f}, p = {res['p_pol']:.3g}\n")
+                f.write("--------------------------------------------------------\n")
