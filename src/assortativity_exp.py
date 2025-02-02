@@ -20,8 +20,8 @@ def plot_results(correlations, means, std):
 
 def assortativity_significance(save_results=False):
     """Determine if the difference between a random and scale-free network is statistically significant using the Welch T-test. An FDR correction is used."""    
-    data_random = pd.read_csv('experimental_data/assortativity_random_results.csv')
-    data_scale = pd.read_csv('experimental_data/assortativity_scale_free_results.csv')
+    data_random = pd.read_csv('statistics/assortativity/random_results.csv')
+    data_scale = pd.read_csv('statistics/assortativity/scale_free_results.csv')
 
     random_means = data_random["mean assort"]
     random_std = data_random["std"]
@@ -46,10 +46,11 @@ def assortativity_significance(save_results=False):
     significant = data_random["correlations"][p_adjusted < alpha].values
     result_significant = f"\nSignificant differences (p < 0.05) at these correlations: \n{significant}"
     print(result_significant)
+    results.append(result_significant)
 
     if save_results:
-        os.makedirs(os.path.dirname("statistics/assortativity/statis_results"), exist_ok=True)
-        with open("statistics/assortativity/statis_results", "w") as f:
+        os.makedirs(os.path.dirname("statistics/assortativity/statis_results.txt"), exist_ok=True)
+        with open("statistics/assortativity/statis_results.txt", "w") as f:
             f.write("\n".join(results))
         print(f"Results saved to: statistics/assortativity/statis_results")
 

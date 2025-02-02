@@ -1,0 +1,14 @@
+Correlation -1.0: t = 3.709, p = 0.00021, adjusted p = 0.00076
+Correlation -0.8: t = 4.720, p = 0.00000, adjusted p = 0.00001
+Correlation -0.6: t = 2.586, p = 0.00972, adjusted p = 0.02139
+Correlation -0.4: t = 4.705, p = 0.00000, adjusted p = 0.00001
+Correlation -0.2: t = 2.837, p = 0.00456, adjusted p = 0.01254
+Correlation 0.0: t = 1.199, p = 0.23068, adjusted p = 0.31718
+Correlation 0.2: t = 1.606, p = 0.10820, adjusted p = 0.17003
+Correlation 0.4: t = 0.678, p = 0.49786, adjusted p = 0.60850
+Correlation 0.6: t = 0.303, p = 0.76220, adjusted p = 0.76220
+Correlation 0.8: t = -0.365, p = 0.71540, adjusted p = 0.76220
+Correlation 1.0: t = -1.668, p = 0.09522, adjusted p = 0.17003
+
+Significant differences (p < 0.05) at these correlations: 
+[-1.  -0.8 -0.6 -0.4 -0.2]
