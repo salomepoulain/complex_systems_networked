@@ -364,3 +364,28 @@ class Network:
 
     def give_alterations(self):
         return self.alterations
+    
+    def run_cascade_for_visuals(self, sL, sR):
+            """
+            Continue responding to the news intensities until a steady state is reached (no changes in activation state).
+            This is the cascade event.
+            """
+            activated = []
+            steady_state_reached = False
+            while not steady_state_reached:
+                round = []
+                steady_state_reached = True  
+                for nodeL in self.nodesL:
+                    if nodeL.respond_for_visuals(sL):
+                        round.append(nodeL.ID)
+                        self.activated.add(nodeL)
+                        steady_state_reached = False
+                for nodeR in self.nodesR:
+                    if nodeR.respond_for_visuals(sR):
+                        round.append(nodeR.ID)
+                        self.activated.add(nodeR)
+                        steady_state_reached = False
+                
+                activated.append(round)
+            
+            return activated
