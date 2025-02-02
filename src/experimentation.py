@@ -5,14 +5,14 @@ from functools import partial
 import os
 from multiprocessing import Pool
 import numpy as np
-# import dill as pickle
 from collections import defaultdict
-import multiprocessing
 
 def get_network_properties(network, seed):
     """
     Extracts and returns the properties of a network for analysis or storage.
     Supports RandomNetwork and ScaleFreeNetwork.
+    Stores it in a dictionary, values can be accessed with the corresponding keys. 
+    Useful for effectively extracting network properties. 
     """
     corr = network.correlation
     node_info = []
@@ -52,6 +52,29 @@ def get_network_properties(network, seed):
 
 
 def parallel_network_generation(whichrun, num_nodes, seed, corr, iterations, update_fraction, starting_distribution, p, m=0, network_type="random"):
+    """
+    Generates and simulates a network in parallel.
+
+    This function creates a network of a specified type, runs multiple iterations 
+    to update its structure, and saves its properties to a file.
+
+    Args:
+        whichrun: Index of the current run, used to adjust the seed.
+        num_nodes: Number of nodes in the network.
+        seed: Base random seed for initialization.
+        corr: Correlation value of the news.
+        iterations: Number of iterations to update the network.
+        update_fraction: Fraction of nodes sampled for news. 
+        starting_distribution: fraction left oriented vs right oriented nodes
+        p : Probability parameter for random network generation.
+        m: Parameter for scale-free networks.
+        network_type: Type of network ("random" or "scale_free", default: "random").
+
+    Outputs:
+        - Saves network properties to a file in a predefined directory.
+        - Prints the number of alterations made during simulation.
+    """
+    
     seed += whichrun
     # Dynamically select the network class
     if network_type == "random":
@@ -86,6 +109,24 @@ def parallel_network_generation(whichrun, num_nodes, seed, corr, iterations, upd
             file.write(f"{key}: {value}\n")
 
 def generate_networks(correlations, initial_seeds, num_nodes, iterations, how_many, update_fraction, starting_distribution, p, network_sort="random", m=0):
+    """
+    Generates multiple networks in parallel.
+
+    This function creates networks using different correlation values and seeds,
+    running the process in parallel.
+
+    Args:
+        correlations (list of float): Correlation values for network generation.
+        initial_seeds (list of int): Seeds for random initialization.
+        num_nodes (int): Number of nodes in each network.
+        iterations (int): Number of iterations to update the network.
+        how_many (int): Number of networks to generate per correlation.
+        update_fraction (float): Fraction of nodes updated per iteration.
+        starting_distribution (str): Initial distribution type.
+        p (float): Probability parameter for network formation.
+        network_sort (str, optional): Network generation method (default: "random").
+        m (int, optional): Extra parameter affecting network structure (default: 0).
+    """
     print(f"starting parallel generation of {network_sort} networks ({num_nodes} nodes)")
     print("-----------------------------------------")
     runs = np.arange(how_many)  # Create a range for the runs
@@ -151,6 +192,25 @@ def read_network_properties(file_path):
     return properties
 
 def read_and_load_networks(num_runs, num_nodes, update_fraction, average_degree, starting_distribution, correlations, whichtype):
+    """
+    Reads and loads networks from stored files.
+
+    This function loads network structures from saved files, reconstructs them, 
+    and returns a dictionary mapping (correlation, run index) to the network states.
+
+    Args:
+        num_runs (int): Number of network runs to load per correlation.
+        num_nodes (int): Number of nodes in each network.
+        update_fraction (float): Fraction of nodes updated per iteration.
+        average_degree (float): Average degree of nodes in the network.
+        starting_distribution (str): Initial distribution type.
+        correlations (list of float): Correlation values for network generation.
+        whichtype (str): Type of network ("random" or "scale-free").
+
+    Returns:
+        dict: A dictionary where keys are (correlation, run index) tuples, 
+              and values are (before_network, after_network) pairs.
+    """
     p = average_degree/(num_nodes-1) 
     networks = defaultdict(tuple)
     for corr in correlations:
@@ -181,6 +241,26 @@ def read_and_load_networks(num_runs, num_nodes, update_fraction, average_degree,
     return networks
 
 def read_and_load_network_sub(sub_id, corr, num_nodes, update_fraction, average_degree, starting_distribution, whichtype):
+    """
+    Reads and reconstructs a single network from a stored file.
+
+    This function loads a specific network instance based on its ID and correlation value,
+    then reconstructs its structure and connections.
+
+    Args:
+        sub_id (int): The identifier of the network instance to load.
+        corr (float): The correlation value associated with the network.
+        num_nodes (int): Number of nodes in the network.
+        update_fraction (float): Fraction of nodes updated per iteration.
+        average_degree (float): Average degree of nodes in the network.
+        starting_distribution (str): Initial distribution type.
+        whichtype (str): Type of network ("random" or "scale-free").
+
+    Returns:
+        tuple: A pair (before_network, after_network), where `before_network` represents
+               the initial network structure and `after_network` represents the reconstructed
+               network with updated connections.
+    """
     p = average_degree/(num_nodes-1) 
 
     network_properties = read_network_properties(f"networks/{whichtype}_2/{corr}/network_{sub_id}.txt")
@@ -208,7 +288,23 @@ def read_and_load_network_sub(sub_id, corr, num_nodes, update_fraction, average_
 
 
 def create_data(iters, network):
+    """
+    Simulates network cascades and collects data on cascade sizes and polarizations.
 
+    This function runs multiple iterations of network analysis, collecting information 
+    on cascade sizes and polarization effects. The results are stored in dictionaries 
+    that map cascade sizes to corresponding polarization values.
+
+    Args:
+        iters (int): Number of iterations to run the network analysis.
+        network (object): The network instance to analyze.
+
+    Returns:
+        tuple:
+            - data (dict): A dictionary mapping cascade sizes to lists of polarization values.
+            - average_data (dict): A dictionary mapping average cascade sizes per round 
+              to lists of corresponding polarization values.
+    """
     all_cascade_sizes = []
     all_polarizations = []
     average_cascade_per_round = []
@@ -246,7 +342,27 @@ def create_data(iters, network):
 
 
 def parallel_cascade_experiment(par):
-    """Worker function for one cascade experiment."""
+    """
+    Runs a single cascade experiment in parallel.
+
+    This function loads a network, runs cascade simulations before and after modifications, 
+    and collects statistics on cascade sizes and polarization.
+
+    Args (par):
+        - experiment_id: Experiment identifier (like a counter from 0 to number of runs).
+        - corr: Correlation value (how distinct the news is).
+        - number_of_iters: Number of iterations to update network.
+        - num_nodes: Number of nodes in the network.
+        - update_fraction: Fraction of nodes sampled with news
+        - average_degree: Average node degree (mainly used to calculate p)
+        - starting_distribution: fraction of nodes left vs right oriented.
+        - which_net: Network type ("random" or "scale_free").
+
+    Returns:
+        - (before_data, after_data, largest_size): Cascade data before and after modification.
+        - (average_before_data, average_after_data, largest_size_averaged): 
+            Averaged cascade data and the largest observed cascade size.
+    """
 
     experiment_id, corr, number_of_iters, num_nodes, update_fraction, average_degree, starting_distribution, which_net = par
     before_network, after_network = read_and_load_network_sub(experiment_id, corr, num_nodes, update_fraction, average_degree, starting_distribution, whichtype=which_net)
@@ -270,6 +386,14 @@ def multiple_correlations_par(corr, num_exp, num_nodes, update_fraction, average
     This function is the parallelized framework for cascade distribution calculation. 
     Every sub-process reads in a network corresponding with a correlation value and returns a cascade distribution. 
     All the distributions returned are combined. 
+
+    args:
+        corr: correlation value
+        num_exp: the number of experiments run
+        num_nodes: the number of nodes within a network
+        update_fraction: number of nodes being sampled (possibly activated by news)
+        starting: fraction of network left-oriented/right oriented
+        what_net: which network topology is used (scale_free/random)
     '''
     # datastructures to save data
     number_of_iters = 10000
@@ -319,6 +443,11 @@ def multiple_correlations_par(corr, num_exp, num_nodes, update_fraction, average
 
 
 if __name__ == "__main__":
+
+    """
+    Running parallel code in main to get the feedback of the sub-processes. (debugging purposes)
+    Mimics the code run in the 'main.ipynb' file 
+    """
     correlations = np.linspace(-1, 1, 11)
     correlations = np.round(correlations, 1)
     initial_seeds = np.linspace(13, 1600, 11)

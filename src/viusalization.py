@@ -213,6 +213,14 @@ def create_distribution(data, num_exp=1):
     This function iterates through a list of cascades and extracts the size of the cascade, 
     the number of times this cascade size occurred and
     the average polarization of this cascade size. 
+
+    args:
+        data: dictionary of the sizes with their cascade list of political orientations of nodes within that cascade.
+        num_exp: number of runs done.
+    returns:
+        counts: list of frequencies a particular size occured (matched index-wise with size)
+        sizes: list of sizes that occurred
+        avg_polarizations: average polarizaiton of that particular cascade size (matched index-wise with size)
     """
     sizes = []
     counts = []
@@ -247,6 +255,13 @@ def plot_cascade_power_law(data, stadium, what_net, largest_size=120, num_exp=30
     
     Args:
         data: A dictionary where keys are cascade sizes and values are lists of the polarizations of nodes within a cascade.
+        stadium: before/after updating
+        largest_size: largest cascade size occurring for a particular correlation value
+        num_exp: number of experiments done.
+        save: if true, saved to specified file. 
+        corr: correlation between news sources. 
+        averaged: in case averaged -> calculates the average size per sampled individual.If not, calculates dist of all cascades
+
     """
     
     # recalculating the full distribution and selecting the relevant cascade sizes (>=2)
@@ -304,18 +319,12 @@ def plot_cascade_animation(cascades_before, cascades_after, correlations, larges
     """
     Create an animated visualization of cascade distributions over multiple correlation values.
 
-    Parameters:
-    -----------
-    cascades : dict
-        Dictionary where keys are correlation values and values are the distribution data.
-    correlations : list
-        List of correlation values to iterate over.
-    largest_sizes : dict
-        Dictionary mapping correlation values to the largest cascade size.
-    num_exp : int
-        Number of experiments for normalization.
-    save : bool, optional
-        If True, saves the animation as a .gif file.
+    Args:
+        cascades : Dictionary where keys are correlation values and values are the distribution data.
+        correlations : List of correlation values to iterate over.
+        largest_sizes : Dictionary mapping correlation values to the largest cascade size.
+        num_exp : Number of experiments for normalization.
+        save : If True, saves the animation as a .gif file.
     """
 
     fig, (ax1, ax2) = plt.subplots(2, 1,figsize=(7, 5), sharex=True)
@@ -389,7 +398,6 @@ def plot_cascade_animation(cascades_before, cascades_after, correlations, larges
         ax2.set_title(f"After (Correlation: {corr})")
         ax2.set_xlim(0, largest_size)
         ax2.set_yscale("log")
-        # if stage == "after":
 
         if not averaged: 
             ax1.set_ylim(10e-3, 10e4)
@@ -414,6 +422,13 @@ def plot_cascade_dist_average(data, stadium, what_net, largest_size=120, num_exp
     
     Args:
         data: A dictionary where keys are cascade sizes and values are lists of the polarizations of nodes within a cascade.
+        stadium: before/after updating
+        largest_size: largest cascade size occurring for a particular correlation value
+        num_exp: number of experiments done.
+        save: if true, saved to specified file. 
+        corr: correlation between news sources. 
+        averaged: in case averaged -> calculates the average size per sampled individual.If not, calculates dist of all cascades
+
     """
     # # Create a custom green-to-red colormap
     green_to_red = plt.cm.RdYlGn_r
@@ -630,23 +645,15 @@ def test_significance(values_bef, values_af, variance_bef, variance_af, num_runs
     """
     Perform t-tests on cascade sizes and polarization before vs. after for each gamma value.
 
-    Parameters:
-    -----------
-    values_bef : dict
-        Dictionary mapping gamma values to (mean_size, mean_polarization) for before.
-    values_af : dict
-        Dictionary mapping gamma values to (mean_size, mean_polarization) for after.
-    variance_bef : dict
-        Dictionary mapping gamma values to (variance_size, variance_polarization) for before.
-    variance_af : dict
-        Dictionary mapping gamma values to (variance_size, variance_polarization) for after.
-    num_runs : int, optional
-        Number of runs per gamma value (default is 30).
+    Args:
+        values_bef : Dictionary mapping gamma values to (mean_size, mean_polarization) for before.
+        values_af : Dictionary mapping gamma values to (mean_size, mean_polarization) for after.
+        variance_bef : Dictionary mapping gamma values to (variance_size, variance_polarization) for before.
+        variance_af : Dictionary mapping gamma values to (variance_size, variance_polarization) for after.
+        num_runs : Number of runs per gamma value (default is 30).
 
     Returns:
-    --------
-    results : dict
-        Dictionary mapping gamma values to t-test results for size and polarization.
+        results : Dictionary mapping gamma values to t-test results for size and polarization.
     """
     results = {}
 
@@ -660,12 +667,12 @@ def test_significance(values_bef, values_af, variance_bef, variance_af, num_runs
         # Compute t-test for cascade sizes
         t_size, p_size = ttest_ind_from_stats(mean1=mean_size_bef, std1=np.sqrt(var_size_bef), nobs1=num_runs,
                                               mean2=mean_size_af, std2=np.sqrt(var_size_af), nobs2=num_runs, 
-                                              equal_var=False)  # Welch's t-test
+                                              equal_var=False) 
 
         # Compute t-test for polarization
         t_pol, p_pol = ttest_ind_from_stats(mean1=mean_pol_bef, std1=np.sqrt(var_pol_bef), nobs1=num_runs,
                                             mean2=mean_pol_af, std2=np.sqrt(var_pol_af), nobs2=num_runs, 
-                                            equal_var=False)  # Welch's t-test
+                                            equal_var=False)  
 
         results[gamma] = {
             "t_size": t_size, "p_size": p_size,
